@@ -189,6 +189,14 @@ function showTutorial() {
 }
 
 function updateTutorial() {
+  const screen = tutorialScreens[tutIndex];
+  $("tutTitle").textContent = screen.title;
+  $("tutText").textContent = screen.text;
+  $("tutProgress").textContent = (tutIndex + 1) + " of 5";
+  $("tutNext").textContent = tutIndex === 4 ? "Start Practising" : "Next";
+}
+
+function updateTutorial() {
   $("tutTitle").textContent = tutorialScreens[tutIndex].title;
   $("tutText").textContent = tutorialScreens[tutIndex].text;
   $("tutProgress").textContent = (tutIndex + 1) + " of 5";
