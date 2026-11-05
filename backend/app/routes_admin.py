@@ -81,3 +81,23 @@ def resolve_flag(flag_id: int, decision: str, db: Session = Depends(get_db), adm
             
     db.commit()
     return {"status": "success"}
+
+
+@router.get("/stats/confidence")
+def confidence_stats(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    from .models import LabelAudit
+    audits = db.scalars(select(LabelAudit).where(LabelAudit.decision != "pending")).all()
+    bands = {}
+    for audit in audits:
+        low = int(audit.confidence // 10) * 10
+        band = bands.setdefault(low, {"band": f"{low}-{low+10}", "kept": 0, "edited": 0, "rejected": 0})
+        band[audit.decision] += 1
+    
+    result = []
+    for low in sorted(bands):
+        band = bands[low]
+        total = band["kept"] + band["edited"] + band["rejected"]
+        band["total"] = total
+        band["kept_percent"] = round(100 * band["kept"] / total, 1)
+        result.append(band)
+    return result

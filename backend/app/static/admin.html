@@ -34,6 +34,13 @@
   <table id="flagTable"><tr><th>ID</th><th>User</th><th>Label</th><th>Confidence</th><th>Actions</th></tr></table>
 </div>
 
+<div class="box">
+  <h3>OCR Confidence Stats (The Audit)</h3>
+  <button onclick="loadStats()">Refresh Stats</button>
+  <table id="statsTable"><tr><th>Band</th><th>Kept</th><th>Edited</th><th>Rejected</th><th>Total</th><th>Kept %</th></tr></table>
+</div>
+
+
 <script>
 let token = sessionStorage.getItem("token") || "";
 
@@ -121,6 +128,20 @@ if (token) {
     }
   });
 }
+async function loadStats() {
+  const res = await api("/admin/stats/confidence");
+  if (!res) return;
+  const stats = await res.json();
+  const table = document.getElementById("statsTable");
+  table.innerHTML = "<tr><th>Band</th><th>Kept</th><th>Edited</th><th>Rejected</th><th>Total</th><th>Kept %</th></tr>";
+  stats.forEach(s => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${s.band}</td><td>${s.kept}</td><td>${s.edited}</td><td>${s.rejected}</td><td>${s.total}</td><td>${s.kept_percent}%</td>`;
+    table.appendChild(tr);
+  });
+}
+loadStats();
+
 </script>
 </body>
 </html>
