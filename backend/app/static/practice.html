@@ -207,10 +207,13 @@ function updateTutorial() {
 
 async function finishTutorial() {
   $("tutorialOverlay").classList.add("hidden");
-  if (token) {
-    try { await api("/auth/me/tutorial-done", { method: "POST" }); } catch(e) {}
+  try { 
+    await call("POST", "/auth/me/tutorial-done"); 
+  } catch(e) {
+    console.log("Could not save tutorial status");
   }
 }
+
 
 $("tutNext").addEventListener("click", () => {
   if (tutIndex < 4) {
@@ -241,6 +244,7 @@ function show(name) {
 function showLogin(message) {
   $("app").classList.add("hidden");
   $("login").classList.remove("hidden");
+  $("tutorialOverlay").classList.add("hidden"); // <--- ADD THIS LINE
   $("loginMsg").textContent = message || "";
 }
 
@@ -334,11 +338,17 @@ async function start() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   
-  // Check tutorial
+  // Check tutorial ONLY if logged in
   try {
     const me = await call("GET", "/auth/me");
-    if (!me.tutorial_seen) showTutorial();
-  } catch(e) {}
+    if (!me.tutorial_seen) {
+      showTutorial();
+    }
+  } catch(e) {
+    // If /auth/me fails, they aren't logged in properly. Send them to login.
+    showLogin("Please log in.");
+    return;
+  }
 
   const res = await api("/sources");
   const sources = (await res.json()).filter((s) => s.status === "ready");
