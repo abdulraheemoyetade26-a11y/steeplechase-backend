@@ -43,7 +43,7 @@ def upload_source(
     if ext in UNSUPPORTED_HINT:
         raise HTTPException(400, UNSUPPORTED_HINT[ext])
     if ext not in EXTRACTORS:
-    max_file_mb = PLAN_LIMITS[plan]["max_file_mb"]
+        max_file_mb = PLAN_LIMITS[plan]["max_file_mb"]
     # We can't check the size of a streaming upload directly, but we can read the headers if sent by the browser, or check after saving.
     # Actually, the best way is to check the file size before reading it into memory.
     file.file.seek(0, 2) # Go to the end of the file
