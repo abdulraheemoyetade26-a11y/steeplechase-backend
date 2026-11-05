@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1f6feb">
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js');
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
   }
 </script>
 <meta charset="utf-8">
@@ -67,9 +67,9 @@
   </div>
 </div>
 <section id="login" class="hidden">
-  <h2 id="authTitle">Steeplechase practice</h2>
-  <input id="email" type="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+  <h2 id="authTitle">Thaw</h2>
+  <input id="email" type="email" name="email" placeholder="Email" autocomplete="username">
+  <input id="password" type="password" name="password" placeholder="Password" autocomplete="current-password">
   <p><button class="primary" id="authBtn" style="width: 100%;">Log in</button></p>
   <p style="text-align: center;">
     <a href="#" id="toggleAuth" style="color: #58a6ff; text-decoration: underline;">Don't have an account? Sign up</a>
@@ -82,6 +82,7 @@
     <strong>Thaw</strong>
     <a href="/review">Image review</a>
     <a href="/editor">Page editor</a>
+    <a href="#" id="logoutBtn" style="margin-left: auto; color: #dc2626;">Log out</a>
   </header>
   <main>
 
@@ -174,7 +175,7 @@
 </section>
 
 <script>
-let token = sessionStorage.getItem("token") || "";
+let token = localStorage.getItem("token") || "";
 const $ = (id) => document.getElementById(id);
 const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
 const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
@@ -271,7 +272,7 @@ async function handleAuth() {
     const res = await fetch("/auth/login", { method: "POST", body });
     if (res.ok) {
       token = (await res.json()).access_token;
-      sessionStorage.setItem("token", token);
+      localStorage.setItem("token", token);
       start().catch(() => {});
     } else {
       $("loginMsg").textContent = "Wrong email or password.";
@@ -289,7 +290,7 @@ async function handleAuth() {
       const loginRes = await fetch("/auth/login", { method: "POST", body });
       if (loginRes.ok) {
         token = (await loginRes.json()).access_token;
-        sessionStorage.setItem("token", token);
+        localStorage.setItem("token", token);
         start().catch(() => {});
       }
     } else {
@@ -695,6 +696,11 @@ $("redeemBtn").addEventListener("click", async () => {
     $("redeemCode").value = "";
     await loadReadiness();
   } catch (e) { $("uploadMsg").textContent = e.message; }
+});
+$("logoutBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  localStorage.removeItem("token");
+  window.location.reload();
 });
 
 if (token) start().catch(() => {});
