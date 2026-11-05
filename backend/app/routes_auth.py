@@ -50,3 +50,13 @@ def mark_tutorial_done(user: User = Depends(get_current_user), db: Session = Dep
     user.tutorial_seen = True
     db.commit()
     return {"status": "ok"}
+
+@router.get("/me")
+def get_me(user: User = Depends(get_current_user)):
+    return {"email": user.email, "tutorial_seen": user.tutorial_seen, "plan": user.plan}
+
+@router.post("/me/tutorial-done")
+def mark_tutorial_done(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user.tutorial_seen = True
+    db.commit()
+    return {"status": "ok"}
