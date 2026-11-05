@@ -39,11 +39,11 @@ def read_labels_with_ai(image_path: str) -> list[dict]:
         for item in data:
             labels.append({
                 "text": item["text"],
-                "x0": item["xmin"] / 1000.0,
-                "y0": item["ymin"] / 1000.0,
-                "x1": item["xmax"] / 1000.0,
-                "y1": item["ymax"] / 1000.0,
-                "confidence": 100.0 # Gemini is highly confident
+                "x0": float(item["xmin"]),
+                "y0": float(item["ymin"]),
+                "x1": float(item["xmax"]),
+                "y1": float(item["ymax"]),
+                "confidence": 100.0
             })
         return labels
     except Exception as e:
