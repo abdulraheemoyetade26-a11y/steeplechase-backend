@@ -51,13 +51,17 @@ def normalise_phone(raw: str) -> str:
     if not re.fullmatch(r"\+[1-9]\d{7,14}", digits):
         raise ValueError("Enter a valid phone number, for example 08012345678 or +2348012345678")
     return digits
+from datetime import timedelta
+
 def apply_plan(db, user, plan: str, days: int):
     now = naive_now()
     current_plan = effective_plan(user)
     
     if current_plan == plan and user.plan_expires_at and user.plan_expires_at > now:
+        # Extend existing plan
         user.plan_expires_at = user.plan_expires_at + timedelta(days=days)
     else:
+        # Start new plan
         user.plan = plan
         user.plan_expires_at = now + timedelta(days=days)
     
