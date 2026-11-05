@@ -52,6 +52,7 @@
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
   <p><button class="primary" id="loginBtn">Log in</button></p>
+  <p><button id="registerBtn" style="background: none; border: none; color: #58a6ff; cursor: pointer; text-decoration: underline;">Don't have an account? Sign up</button></p>
   <div class="msg" id="loginMsg"></div>
 </section>
 
@@ -648,6 +649,34 @@ function renderResults(r) {
 /* ---------- wiring ---------- */
 
 $("loginBtn").addEventListener("click", login);
+async function register() {
+  const email = $("email").value;
+  const password = $("password").value;
+  if (!email || !password) { $("loginMsg").textContent = "Please fill in both fields."; return; }
+  
+  const res = await fetch("/auth/register", { 
+    method: "POST", 
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }) 
+  });
+  
+  if (!res.ok) {
+    const err = await res.json();
+    $("loginMsg").textContent = typeof err.detail === "string" ? err.detail : "Registration failed.";
+    return;
+  }
+  
+  // Auto login after registration
+  const body = new URLSearchParams({ username: email, password: password });
+  const loginRes = await fetch("/auth/login", { method: "POST", body });
+  if (loginRes.ok) {
+    token = (await loginRes.json()).access_token;
+    sessionStorage.setItem("token", token);
+    start().catch(() => {});
+  }
+}
+
+$("registerBtn").addEventListener("click", register);
 $("sourceSelect").addEventListener("change", () => { $("banner").classList.add("hidden"); loadReadiness(); });
 $("minutes").addEventListener("input", updateEstimate);
 $("goSetup").addEventListener("click", () => show("setup"));
