@@ -1,3 +1,6 @@
+from fastapi.responses import FileResponse
+import os
+from pathlib import Path
 import io
 import json
 import random
@@ -341,22 +344,40 @@ def station_image(
 ):
     session = own_session(db, session_id, user)
     station = get_station(db, session, number)
+    
     if station.kind != "station":
         raise HTTPException(400, "This is a rest station")
+        
     state = station_state(session, station, utcnow())
     if state == "pending":
         raise HTTPException(409, "Start the station first")
     if state != "active":
         raise HTTPException(403, "This station is closed")
 
+    # --- CACHING LOGIC STARTS HERE ---
+    cache_dir = Path("cache")
+    cache_dir.mkdir(exist_ok=True)
+    cache_file = cache_dir / f"station_{session_id}_{number}.jpg"
+
+    if cache_file.exists():
+        # If we already made this image, send it immediately!
+        return FileResponse(cache_file, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    # If it doesn't exist, generate it now
     page = db.get(PageRender, station.page_id) if station.page_id else None
     if page is None:
         raise HTTPException(404, "The source page for this station no longer exists")
+        
     ids = region_ids_of(station)
     by_id = load_regions(db, ids)
     regions = [by_id[i] for i in ids if i in by_id]
     payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
+    
+    # Save it to the cache folder for next time
+    cache_file.write_bytes(payload)
+    
     return Response(content=payload, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    # --- CACHING LOGIC ENDS HERE ---
 
 @router.post("/sessions/{session_id}/stations/{number}/answer")
 def submit_answer(
