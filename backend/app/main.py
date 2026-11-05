@@ -1,3 +1,4 @@
+from fastapi.staticfiles import StaticFiles
 from .routes_admin import router as admin_router
 from contextlib import asynccontextmanager
 from .routes_jobs import router as jobs_router
@@ -28,7 +29,7 @@ async def lifespan(_app):
     stop_worker()
 
 app = FastAPI(title="Thaw API", lifespan=lifespan)
-
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
