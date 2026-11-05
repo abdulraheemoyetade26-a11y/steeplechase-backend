@@ -10,6 +10,7 @@ from .security import create_access_token, hash_password, verify_password
 
 from .deps import get_current_user
 from .models import User
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.get("/me")
 def get_me(user: User = Depends(get_current_user)):
@@ -21,7 +22,7 @@ def mark_tutorial_done(user: User = Depends(get_current_user), db: Session = Dep
     db.commit()
     return {"status": "ok"}
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+
 
 
 @router.post("/register", response_model=TokenOut)
