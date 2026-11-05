@@ -9,3 +9,4 @@ pymupdf
 python-pptx
 python-docx
 pytesseract
+psycopg[binary]
