@@ -1,9 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#1f6feb">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js');
+  }
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>Steeplechase practice</title>
+<title>Thaw</title>
 <style>
   :root { --bg:#ffffff; --fg:#1b1b1b; --card:#f3f4f6; --line:#d0d5dd; --accent:#1f6feb; --muted:#667085; --good:#16a34a; --bad:#dc2626; }
   @media (prefers-color-scheme: dark) {
@@ -71,7 +79,7 @@
 
 <section id="app" class="hidden">
   <header>
-    <strong>Steeplechase practice</strong>
+    <strong>Thaw</strong>
     <a href="/review">Image review</a>
     <a href="/editor">Page editor</a>
   </header>

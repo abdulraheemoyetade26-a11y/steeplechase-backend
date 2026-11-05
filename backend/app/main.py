@@ -27,7 +27,7 @@ async def lifespan(_app):
     yield
     stop_worker()
 
-app = FastAPI(title="Steeplechase API", lifespan=lifespan)
+app = FastAPI(title="Thaw API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,3 +1,4 @@
+from .plans import effective_plan, PLAN_LIMITS
 import shutil
 import uuid
 from pathlib import Path
@@ -42,12 +43,25 @@ def upload_source(
     if ext in UNSUPPORTED_HINT:
         raise HTTPException(400, UNSUPPORTED_HINT[ext])
     if ext not in EXTRACTORS:
+    max_file_mb = PLAN_LIMITS[plan]["max_file_mb"]
+    # We can't check the size of a streaming upload directly, but we can read the headers if sent by the browser, or check after saving.
+    # Actually, the best way is to check the file size before reading it into memory.
+    file.file.seek(0, 2) # Go to the end of the file
+    file_size = file.file.tell()
+    file.file.seek(0) # Go back to the start
+    if file_size > max_file_mb * 1024 * 1024:
+        raise HTTPException(413, f"File is too large. Your plan allows up to {max_file_mb} MB.")
         raise HTTPException(400, f"File type {ext or '(none)'} is not supported. Use: {', '.join(EXTRACTORS)}")
 
     if course_id is not None:
         course = db.get(Course, course_id)
         if course is None or course.user_id != user.id:
             raise HTTPException(404, "Course not found")
+    plan = effective_plan(user)
+    max_decks = PLAN_LIMITS[plan]["max_decks"]
+    deck_count = db.scalar(select(func.count()).select_from(Source).where(Source.user_id == user.id))
+    if deck_count >= max_decks:
+        raise HTTPException(400, f"You have reached your deck limit ({max_decks} decks) on the {plan.capitalize()} plan. Delete a deck or upgrade.")
 
     user_dir = Path(settings.upload_dir) / str(user.id)
     user_dir.mkdir(parents=True, exist_ok=True)
