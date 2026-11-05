@@ -48,11 +48,13 @@
 <body>
 
 <section id="login" class="hidden">
-  <h2>Steeplechase practice</h2>
+  <h2 id="authTitle">Steeplechase practice</h2>
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
-  <p><button class="primary" id="loginBtn">Log in</button></p>
-  <p><button id="registerBtn" style="background: none; border: none; color: #58a6ff; cursor: pointer; text-decoration: underline;">Don't have an account? Sign up</button></p>
+  <p><button class="primary" id="authBtn" style="width: 100%;">Log in</button></p>
+  <p style="text-align: center;">
+    <a href="#" id="toggleAuth" style="color: #58a6ff; text-decoration: underline;">Don't have an account? Sign up</a>
+  </p>
   <div class="msg" id="loginMsg"></div>
 </section>
 
@@ -158,6 +160,7 @@ const $ = (id) => document.getElementById(id);
 const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
 const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
 const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
+let isLoginMode = true;
 
 function el(tag, attrs = {}, ...kids) {
   const node = document.createElement(tag);
@@ -179,13 +182,61 @@ function showLogin(message) {
   $("loginMsg").textContent = message || "";
 }
 
-async function login() {
-  const body = new URLSearchParams({ username: $("email").value, password: $("password").value });
-  const res = await fetch("/auth/login", { method: "POST", body });
-  if (!res.ok) { $("loginMsg").textContent = "Wrong email or password"; return; }
-  token = (await res.json()).access_token;
-  sessionStorage.setItem("token", token);
-  start().catch(() => {});
+function toggleAuthMode(e) {
+  e.preventDefault();
+  isLoginMode = !isLoginMode;
+  if (isLoginMode) {
+    $("authTitle").textContent = "Steeplechase practice";
+    $("authBtn").textContent = "Log in";
+    $("toggleAuth").textContent = "Don't have an account? Sign up";
+  } else {
+    $("authTitle").textContent = "Create an Account";
+    $("authBtn").textContent = "Sign Up";
+    $("toggleAuth").textContent = "Already have an account? Log in";
+  }
+  $("loginMsg").textContent = "";
+}
+
+async function handleAuth() {
+  const email = $("email").value.trim();
+  const password = $("password").value;
+  if (!email || !password) { $("loginMsg").textContent = "Please fill in both fields."; return; }
+  
+  $("authBtn").disabled = true;
+  $("loginMsg").textContent = "Connecting...";
+
+  if (isLoginMode) {
+    const body = new URLSearchParams({ username: email, password });
+    const res = await fetch("/auth/login", { method: "POST", body });
+    if (res.ok) {
+      token = (await res.json()).access_token;
+      sessionStorage.setItem("token", token);
+      start().catch(() => {});
+    } else {
+      $("loginMsg").textContent = "Wrong email or password.";
+    }
+  } else {
+    const res = await fetch("/auth/register", { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }) 
+    });
+    
+    if (res.ok) {
+      $("loginMsg").textContent = "Account created! Logging you in...";
+      const body = new URLSearchParams({ username: email, password });
+      const loginRes = await fetch("/auth/login", { method: "POST", body });
+      if (loginRes.ok) {
+        token = (await loginRes.json()).access_token;
+        sessionStorage.setItem("token", token);
+        start().catch(() => {});
+      }
+    } else {
+      const err = await res.json();
+      $("loginMsg").textContent = typeof err.detail === "string" ? err.detail : "Registration failed.";
+    }
+  }
+  $("authBtn").disabled = false;
 }
 
 async function api(path, options = {}) {
@@ -216,8 +267,6 @@ function minutesText(seconds) {
   const m = Math.max(1, Math.ceil(seconds / 60));
   return m + " minute" + (m === 1 ? "" : "s");
 }
-
-/* ---------- chooser ---------- */
 
 async function start() {
   $("login").classList.add("hidden");
@@ -250,16 +299,16 @@ async function loadReadiness() {
   }
 
   if (readiness.labels > 0) {
-    $("optA").textContent = readiness.labels + " labels on " + readiness.pages + " pages are ready. You can start right away. A few labels may show as \"Not scored\" if their answer key could not be fully verified.";
+    $("optA").textContent = readiness.labels + " labels on " + readiness.pages + " pages are ready. You can start right away.";
   } else {
-    $("optA").textContent = "Nothing is ready yet. Process a source in the page editor, or use Option B to check labels first.";
+    $("optA").textContent = "Nothing is ready yet. Process a source in the page editor.";
   }
   $("goSetup").disabled = readiness.labels === 0;
 
   if (readiness.held > 0) {
-    $("optB").textContent = readiness.held + " labels are held back until someone checks them. Checking all of them would take about " + minutesText(readiness.held * readiness.seconds) + ".";
+    $("optB").textContent = readiness.held + " labels are held back. Checking all of them would take about " + minutesText(readiness.held * readiness.seconds) + ".";
   } else {
-    $("optB").textContent = "Nothing is held back. Every label that was found is already ready.";
+    $("optB").textContent = "Nothing is held back.";
   }
   $("goReview").disabled = readiness.held === 0;
   updateEstimate();
@@ -270,7 +319,7 @@ function updateEstimate() {
   const minutes = Math.max(1, Number($("minutes").value) || 1);
   const can = Math.min(readiness.held, Math.floor((minutes * 60) / readiness.seconds));
   $("optBEstimate").textContent = readiness.held > 0
-    ? "In " + minutes + " minute" + (minutes === 1 ? "" : "s") + " you can check about " + can + " labels, starting with the ones most likely to be right."
+    ? "In " + minutes + " min you can check about " + can + " labels."
     : "";
 }
 
@@ -279,7 +328,7 @@ let pollTimer = null;
 function showProcessing(data) {
   clearTimeout(pollTimer);
   const box = $("processing");
-  box.replaceChildren(); // Clear out old text/buttons
+  box.replaceChildren();
   
   const active = data.sources.filter((s) => s.processing && ["queued", "running"].includes(s.processing.status));
   const failed = data.sources.filter((s) => s.processing && s.processing.status === "failed");
@@ -287,41 +336,32 @@ function showProcessing(data) {
   if (active.length) {
     active.forEach(s => {
       const p = s.processing;
-      const text = s.filename + ": " + (p.status === "queued" ? "waiting to start" : "page " + p.pages_done + " of " + p.pages_total);
+      const text = s.filename + ": " + (p.status === "queued" ? "waiting" : "page " + p.pages_done + " of " + p.pages_total);
       const btn = el("button", { text: "Cancel", style: "margin-left: 10px; padding: 2px 8px;" });
       btn.addEventListener("click", () => cancelJob(p.id));
-      
       box.appendChild(el("div", { text: text }, btn));
     });
-    box.appendChild(el("div", { text: "You can start practicing with what is ready, or check labels, while this continues.", style: "margin-top: 8px; font-size: 0.9em;" }));
+    box.appendChild(el("div", { text: "You can start practicing with what is ready.", style: "margin-top: 8px; font-size: 0.9em;" }));
   }
   
   failed.forEach((s) => {
-    box.appendChild(el("div", { text: "Processing failed for " + s.filename + ": " + (s.processing.error || "unknown error") }));
+    box.appendChild(el("div", { text: "Failed: " + s.filename + ": " + (s.processing.error || "unknown error") }));
   });
   
-  if (!active.length && !failed.length) { 
-    box.classList.add("hidden"); 
-    return; 
-  }
+  if (!active.length && !failed.length) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
   if (active.length) pollTimer = setTimeout(loadReadiness, 3000);
 }
 
 async function cancelJob(jobId) {
-  if (!confirm("Are you sure you want to cancel processing this file?")) return;
-  try {
-    await call("POST", "/jobs/" + jobId + "/cancel");
-    await loadReadiness(); // Refresh immediately
-  } catch (e) {
-    alert(e.message);
-  }
+  if (!confirm("Cancel processing this file?")) return;
+  try { await call("POST", "/jobs/" + jobId + "/cancel"); await loadReadiness(); } catch (e) { alert(e.message); }
 }
 
 async function upload() {
   const file = $("fileInput").files[0];
   if (!file) { $("uploadMsg").textContent = "Choose a file first"; return; }
-  $("uploadMsg").textContent = "Uploading and reading the text. Large files can take a minute...";
+  $("uploadMsg").textContent = "Uploading...";
   const form = new FormData();
   form.append("file", file);
   form.append("process", "true");
@@ -329,57 +369,34 @@ async function upload() {
   try {
     res = await api("/sources/upload", { method: "POST", body: form });
     try { data = await res.json(); } catch (e) {}
-  } catch (e) {
-    $("uploadMsg").textContent = "Upload failed";
-    return;
-  }
-  if (!res.ok) {
-    $("uploadMsg").textContent = data && typeof data.detail === "string" ? data.detail : "Upload failed";
-    return;
-  }
-  if (data.status === "failed") {
-    $("uploadMsg").textContent = data.error || "The file could not be read";
-    return;
-  }
-  $("uploadMsg").textContent = "Uploaded. Processing has started.";
+  } catch (e) { $("uploadMsg").textContent = "Upload failed"; return; }
+  if (!res.ok) { $("uploadMsg").textContent = data && typeof data.detail === "string" ? data.detail : "Upload failed"; return; }
+  if (data.status === "failed") { $("uploadMsg").textContent = data.error || "Could not read file"; return; }
+  $("uploadMsg").textContent = "Processing started.";
   $("fileInput").value = "";
   await start();
   $("sourceSelect").value = String(data.id);
   await loadReadiness();
 }
 
-/* ---------- option B: timed review ---------- */
-
-function updateCounters() {
-  $("reviewCounts").textContent = "Unlocked: " + review.unlocked + "   Removed: " + review.removed;
-}
+function updateCounters() { $("reviewCounts").textContent = "Unlocked: " + review.unlocked + "   Removed: " + review.removed; }
 
 async function startReview() {
   const minutes = Math.max(1, Number($("minutes").value) || 5);
-  review.queue = [];
-  review.history = [];
-  review.index = 0;
-  review.unlocked = 0;
-  review.removed = 0;
-  review.current = null;
-  review.busy = false;
-  review.active = true;
+  review.queue = []; review.history = []; review.index = 0; review.unlocked = 0; review.removed = 0;
+  review.current = null; review.busy = false; review.active = true;
   review.endAt = Date.now() + minutes * 60000;
   $("reviewMsg").textContent = "";
   show("review");
   updateCounters();
   tickReview();
   review.timer = setInterval(tickReview, 500);
-  
-  // Load the first batch of items immediately
   try {
     const sid = $("sourceSelect").value;
     const data = await call("GET", "/label-review/queue?limit=30" + (sid ? "&source_id=" + sid : ""));
     review.queue = data.items;
     await nextItem();
-  } catch (e) {
-    $("reviewMsg").textContent = e.message;
-  }
+  } catch (e) { $("reviewMsg").textContent = e.message; }
 }
 
 function tickReview() {
@@ -394,15 +411,14 @@ async function nextItem() {
     const sid = $("sourceSelect").value;
     const data = await call("GET", "/label-review/queue?limit=30" + (sid ? "&source_id=" + sid : ""));
     if (!review.active) return;
-    review.queue = data.items;
-    review.index = 0;
+    review.queue = data.items; review.index = 0;
     if (!review.queue.length) { finishReview(); return; }
   }
   const item = review.queue[review.index];
   review.current = item;
   $("reviewImg").removeAttribute("src");
   $("reviewInput").value = item.text;
-  $("reviewConf").textContent = "Machine confidence: " + Math.round(item.confidence) + "   (source page " + item.page_number + ")";
+  $("reviewConf").textContent = "Confidence: " + Math.round(item.confidence) + " (page " + item.page_number + ")";
   $("reviewInput").focus();
   const res = await api("/label-review/" + item.region_id + "/crop");
   if (review.active && review.current === item && res.ok) $("reviewImg").src = URL.createObjectURL(await res.blob());
@@ -415,21 +431,11 @@ async function decide(kind) {
   const typed = $("reviewInput").value.trim();
   let decision = kind;
   if (kind === "confirm") decision = typed !== item.text ? "fix" : "correct";
-  
-  try {
-    await call("POST", "/label-review/" + item.region_id + "/decision", { decision, text: typed });
-  } catch (e) {
-    $("reviewMsg").textContent = e.message;
-    review.busy = false;
-    return;
-  }
-  
+  try { await call("POST", "/label-review/" + item.region_id + "/decision", { decision, text: typed }); }
+  catch (e) { $("reviewMsg").textContent = e.message; review.busy = false; return; }
   $("reviewMsg").textContent = "";
   if (decision === "reject") review.removed += 1; else review.unlocked += 1;
-  
-  // Save to history for multi-step undo
   review.history.push({ item, decision });
-  
   review.index += 1;
   updateCounters();
   review.busy = false;
@@ -440,56 +446,34 @@ async function undo() {
   if (!review.active || review.history.length === 0 || review.busy) return;
   review.busy = true;
   const { item, decision } = review.history.pop();
-  
-  try {
-    await call("POST", "/label-review/" + item.region_id + "/undo");
-  } catch (e) {
-    $("reviewMsg").textContent = e.message;
-    review.busy = false;
-    return;
-  }
-  
+  try { await call("POST", "/label-review/" + item.region_id + "/undo"); }
+  catch (e) { $("reviewMsg").textContent = e.message; review.busy = false; return; }
   if (decision === "reject") review.removed -= 1; else review.unlocked -= 1;
-  
   review.queue.splice(review.index, 0, item);
-  updateCounters();
-  review.busy = false;
-  
+  updateCounters(); review.busy = false;
   try { await nextItem(); } catch (e) { $("reviewMsg").textContent = e.message; }
 }
 
 async function finishReview() {
   if (!review.active) return;
-  review.active = false;
-  clearInterval(review.timer);
+  review.active = false; clearInterval(review.timer);
   show("choose");
   const banner = $("banner");
-  banner.textContent = "Review finished: " + review.unlocked + " label(s) unlocked, " + review.removed + " removed.";
+  banner.textContent = "Review finished: " + review.unlocked + " unlocked, " + review.removed + " removed.";
   banner.classList.remove("hidden");
   await loadReadiness();
 }
 
-/* ---------- option A and the practice run ---------- */
-
 async function begin() {
   $("setupMsg").textContent = "";
   const body = {
-    station_count: Number($("stations").value),
-    seconds_per_station: Number($("seconds").value),
-    labels_per_station: Number($("labels").value),
-    rest_every: Number($("restEvery").value),
-    rest_seconds: Number($("restSeconds").value),
+    station_count: Number($("stations").value), seconds_per_station: Number($("seconds").value),
+    labels_per_station: Number($("labels").value), rest_every: Number($("restEvery").value), rest_seconds: Number($("restSeconds").value),
   };
   if ($("sourceSelect").value) body.source_ids = [Number($("sourceSelect").value)];
-  try {
-    run.session = await call("POST", "/practice/sessions", body);
-  } catch (e) {
-    $("setupMsg").textContent = e.message;
-    return;
-  }
-  run.index = 0;
-  $("runMsg").textContent = "";
-  next();
+  try { run.session = await call("POST", "/practice/sessions", body); }
+  catch (e) { $("setupMsg").textContent = e.message; return; }
+  run.index = 0; $("runMsg").textContent = ""; next();
 }
 
 function next() {
@@ -502,50 +486,33 @@ function next() {
 }
 
 function showRest() {
-  show("run");
-  $("runTitle").textContent = "Rest";
-  $("stationBox").classList.add("hidden");
-  $("restBox").classList.remove("hidden");
+  show("run"); $("runTitle").textContent = "Rest";
+  $("stationBox").classList.add("hidden"); $("restBox").classList.remove("hidden");
   let left = run.session.rest_seconds;
   $("restTimer").textContent = left + " s";
   run.timer = setInterval(() => {
-    left -= 1;
-    $("restTimer").textContent = Math.max(left, 0) + " s";
+    left -= 1; $("restTimer").textContent = Math.max(left, 0) + " s";
     if (left <= 0) next();
   }, 1000);
 }
 
 async function showStation(station) {
-  show("run");
-  $("restBox").classList.add("hidden");
-  $("stationBox").classList.remove("hidden");
+  show("run"); $("restBox").classList.add("hidden"); $("stationBox").classList.remove("hidden");
   const position = run.session.stations.filter((s) => s.kind === "station" && s.number <= station.number).length;
   $("runTitle").textContent = "Station " + position + " of " + run.session.station_count;
-  $("runMsg").textContent = "";
-  $("runImg").removeAttribute("src");
-  $("inputs").replaceChildren();
-  $("timer").textContent = "";
-  $("submitBtn").disabled = true;
-  run.number = station.number;
-  run.submitting = false;
+  $("runMsg").textContent = ""; $("runImg").removeAttribute("src"); $("inputs").replaceChildren();
+  $("timer").textContent = ""; $("submitBtn").disabled = true;
+  run.number = station.number; run.submitting = false;
 
   let info;
-  try {
-    info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start");
-  } catch (e) {
-    $("runMsg").textContent = e.message;
-    return;
-  }
+  try { info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start"); }
+  catch (e) { $("runMsg").textContent = e.message; return; }
   const imageRes = await api("/practice/sessions/" + run.session.id + "/stations/" + station.number + "/image");
   if (imageRes.ok) $("runImg").src = URL.createObjectURL(await imageRes.blob());
 
   for (let i = 1; i <= info.labels; i++) {
     const input = el("input", {
-      type: "text",
-      autocomplete: "off",
-      autocorrect: "off",
-      autocapitalize: "off",
-      spellcheck: "false",
+      type: "text", autocomplete: "off", autocorrect: "off", autocapitalize: "off", spellcheck: "false",
       placeholder: info.labels > 1 ? "Answer for " + i : "Name the hidden label",
     });
     input.addEventListener("keydown", (e) => {
@@ -563,8 +530,7 @@ async function showStation(station) {
     $("timer").textContent = left + " s";
     if (left <= 0) submit();
   };
-  tick();
-  run.timer = setInterval(tick, 250);
+  tick(); run.timer = setInterval(tick, 250);
   $("submitBtn").disabled = false;
   const first = $("inputs").querySelector("input");
   if (first) first.focus();
@@ -572,14 +538,10 @@ async function showStation(station) {
 
 async function submit() {
   if (run.submitting) return;
-  run.submitting = true;
-  clearInterval(run.timer);
+  run.submitting = true; clearInterval(run.timer);
   const answers = Array.from($("inputs").querySelectorAll("input")).map((i) => i.value);
-  try {
-    await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + run.number + "/answer", { answers });
-  } catch (e) {
-    $("runMsg").textContent = e.message;
-  }
+  try { await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + run.number + "/answer", { answers }); }
+  catch (e) { $("runMsg").textContent = e.message; }
   next();
 }
 
@@ -588,9 +550,7 @@ async function finish() {
   try {
     await call("POST", "/practice/sessions/" + run.session.id + "/finish");
     renderResults(await call("GET", "/practice/sessions/" + run.session.id + "/results"));
-  } catch (e) {
-    $("runMsg").textContent = e.message;
-  }
+  } catch (e) { $("runMsg").textContent = e.message; }
 }
 
 const observer = new IntersectionObserver((entries) => {
@@ -604,20 +564,16 @@ const observer = new IntersectionObserver((entries) => {
 });
 
 const VERDICT = {
-  exact: "Correct",
-  close: "Correct (check spelling)",
-  wrong: "Wrong",
-  blank: "No answer",
-  unscored: "Not scored (answer key not fully verified)",
-  flagged: "Reported, not counted",
+  exact: "Correct", close: "Correct (check spelling)", wrong: "Wrong", blank: "No answer",
+  unscored: "Not scored (answer key not fully verified)", flagged: "Reported, not counted",
 };
 
 function renderResults(r) {
   show("results");
   const box = $("results");
-    box.replaceChildren(
+  box.replaceChildren(
     el("h2", { text: "Score: " + r.earned + " / " + r.possible + " (" + r.percent + "%)" }),
-    el("p", { text: `If your reports are accepted: ${r.score_if_reports_accepted} / ${r.possible_if_reports_accepted}` }),
+    el("p", { text: "If your reports are accepted: " + r.score_if_reports_accepted + " / " + r.possible_if_reports_accepted }),
     el("p", { class: "hint", text: "Items marked \"Not scored\" or \"Reported\" use an answer key the app could not fully verify, so a mismatch never counts against you." })
   );
   r.stations.forEach((st, index) => {
@@ -627,13 +583,8 @@ function renderResults(r) {
     const rows = st.items.map((item) => {
       const flag = el("button", { text: "Report wrong label" });
       flag.addEventListener("click", async () => {
-        try {
-          await call("POST", "/practice/flags", { region_id: item.region_id });
-          flag.textContent = "Reported";
-          flag.disabled = true;
-        } catch (e) {
-          flag.textContent = e.message;
-        }
+        try { await call("POST", "/practice/flags", { region_id: item.region_id }); flag.textContent = "Reported"; flag.disabled = true; }
+        catch (e) { flag.textContent = e.message; }
       });
       const line = "#" + item.number + "  correct: " + item.correct + "  |  you wrote: " + (item.student || "(nothing)") + "  |  " + VERDICT[item.outcome];
       return el("div", { class: "item " + item.outcome }, el("div", { text: line }), flag);
@@ -646,37 +597,8 @@ function renderResults(r) {
   box.appendChild(again);
 }
 
-/* ---------- wiring ---------- */
-
-$("loginBtn").addEventListener("click", login);
-async function register() {
-  const email = $("email").value;
-  const password = $("password").value;
-  if (!email || !password) { $("loginMsg").textContent = "Please fill in both fields."; return; }
-  
-  const res = await fetch("/auth/register", { 
-    method: "POST", 
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }) 
-  });
-  
-  if (!res.ok) {
-    const err = await res.json();
-    $("loginMsg").textContent = typeof err.detail === "string" ? err.detail : "Registration failed.";
-    return;
-  }
-  
-  // Auto login after registration
-  const body = new URLSearchParams({ username: email, password: password });
-  const loginRes = await fetch("/auth/login", { method: "POST", body });
-  if (loginRes.ok) {
-    token = (await loginRes.json()).access_token;
-    sessionStorage.setItem("token", token);
-    start().catch(() => {});
-  }
-}
-
-$("registerBtn").addEventListener("click", register);
+$("toggleAuth").addEventListener("click", toggleAuthMode);
+$("authBtn").addEventListener("click", handleAuth);
 $("sourceSelect").addEventListener("change", () => { $("banner").classList.add("hidden"); loadReadiness(); });
 $("minutes").addEventListener("input", updateEstimate);
 $("goSetup").addEventListener("click", () => show("setup"));
@@ -696,9 +618,6 @@ $("reviewInput").addEventListener("keydown", (e) => {
   e.preventDefault();
   decide(e.shiftKey ? "reject" : "confirm");
 });
-
-if (token) start().catch(() => {});
-else showLogin("");
 $("redeemBtn").addEventListener("click", async () => {
   const code = $("redeemCode").value;
   if (!code) return;
@@ -706,11 +625,12 @@ $("redeemBtn").addEventListener("click", async () => {
     const res = await call("POST", "/plan/redeem", { code });
     $("uploadMsg").textContent = "Success! You are now on the " + res.plan + " plan.";
     $("redeemCode").value = "";
-    await loadReadiness(); // Refresh the page count
-  } catch (e) {
-    $("uploadMsg").textContent = e.message;
-  }
+    await loadReadiness();
+  } catch (e) { $("uploadMsg").textContent = e.message; }
 });
+
+if (token) start().catch(() => {});
+else showLogin("");
 </script>
 </body>
 </html>
