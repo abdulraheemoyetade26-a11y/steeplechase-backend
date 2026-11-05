@@ -174,6 +174,14 @@
 </section>
 
 <script>
+let token = sessionStorage.getItem("token") || "";
+const $ = (id) => document.getElementById(id);
+const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
+const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
+const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
+let isLoginMode = true;
+
+// --- TUTORIAL LOGIC ---
 const tutorialScreens = [
   { title: "Welcome", text: "Practise anatomy spotters from your own lecture slides, in minutes." },
   { title: "Upload", text: "Add your lecture PDF or PowerPoint. We pull out the diagrams and start working in the background. You can close the page and come back." },
@@ -196,16 +204,11 @@ function updateTutorial() {
   $("tutNext").textContent = tutIndex === 4 ? "Start Practising" : "Next";
 }
 
-function updateTutorial() {
-  $("tutTitle").textContent = tutorialScreens[tutIndex].title;
-  $("tutText").textContent = tutorialScreens[tutIndex].text;
-  $("tutProgress").textContent = (tutIndex + 1) + " of 5";
-  $("tutNext").textContent = tutIndex === 4 ? "Start Practising" : "Next";
-}
-
 async function finishTutorial() {
   $("tutorialOverlay").classList.add("hidden");
-  await call("POST", "/auth/me/tutorial-done");
+  if (token) {
+    try { await api("/auth/me/tutorial-done", { method: "POST" }); } catch(e) {}
+  }
 }
 
 $("tutNext").addEventListener("click", () => {
@@ -218,12 +221,7 @@ $("tutNext").addEventListener("click", () => {
 });
 
 $("tutSkip").addEventListener("click", finishTutorial);
-let token = sessionStorage.getItem("token") || "";
-const $ = (id) => document.getElementById(id);
-const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
-const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
-const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
-let isLoginMode = true;
+// ----------------------
 
 function el(tag, attrs = {}, ...kids) {
   const node = document.createElement(tag);
@@ -249,7 +247,7 @@ function toggleAuthMode(e) {
   e.preventDefault();
   isLoginMode = !isLoginMode;
   if (isLoginMode) {
-    $("authTitle").textContent = "Steeplechase practice";
+    $("authTitle").textContent = "Thaw";
     $("authBtn").textContent = "Log in";
     $("toggleAuth").textContent = "Don't have an account? Sign up";
   } else {
@@ -335,14 +333,13 @@ async function start() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   
-  // Check if tutorial is needed
-  const me = await call("GET", "/auth/me");
-  if (!me.tutorial_seen) {
-    showTutorial();
-  }
-  
+  // Check tutorial
+  try {
+    const me = await call("GET", "/auth/me");
+    if (!me.tutorial_seen) showTutorial();
+  } catch(e) {}
+
   const res = await api("/sources");
-  // ... rest of the function
   const sources = (await res.json()).filter((s) => s.status === "ready");
   const select = $("sourceSelect");
   select.replaceChildren(el("option", { value: "", text: "All my sources" }));
@@ -702,6 +699,7 @@ $("redeemBtn").addEventListener("click", async () => {
 
 if (token) start().catch(() => {});
 else showLogin("");
+</script>
 </script>
 </body>
 </html>
