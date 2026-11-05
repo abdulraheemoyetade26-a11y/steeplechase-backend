@@ -46,7 +46,18 @@
 </style>
 </head>
 <body>
-
+<!-- Tutorial Overlay -->
+<div id="tutorialOverlay" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; color: white;">
+  <div id="tutorialContent" style="max-width: 500px;">
+    <h1 id="tutTitle" style="font-size: 2rem; margin-bottom: 20px;">Welcome</h1>
+    <p id="tutText" style="font-size: 1.2rem; line-height: 1.5; margin-bottom: 30px;"></p>
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <button id="tutNext" class="primary" style="padding: 12px 24px; font-size: 1.1rem;">Next</button>
+      <button id="tutSkip" style="padding: 12px 24px; font-size: 1.1rem; background: transparent; border: 1px solid white; color: white;">Skip</button>
+    </div>
+    <p style="margin-top: 20px; font-size: 0.9rem; opacity: 0.6;" id="tutProgress">1 of 5</p>
+  </div>
+</div>
 <section id="login" class="hidden">
   <h2 id="authTitle">Steeplechase practice</h2>
   <input id="email" type="email" placeholder="Email">
@@ -155,6 +166,42 @@
 </section>
 
 <script>
+const tutorialScreens = [
+  { title: "Welcome", text: "Practise anatomy spotters from your own lecture slides, in minutes." },
+  { title: "Upload", text: "Add your lecture PDF or PowerPoint. We pull out the diagrams and start working in the background. You can close the page and come back." },
+  { title: "Two Paths", text: "Option A: practise now with labels the app is confident about. Option B: spend a few minutes checking doubtful labels to unlock more." },
+  { title: "Set Your Timer", text: "Choose how long you get per station, just like in the real exam." },
+  { title: "Practise and Score", text: "Labels are hidden. Type your answers, then see your marks. Think a label is wrong? Tap Report and we will review it." }
+];
+let tutIndex = 0;
+
+function showTutorial() {
+  $("tutorialOverlay").classList.remove("hidden");
+  updateTutorial();
+}
+
+function updateTutorial() {
+  $("tutTitle").textContent = tutorialScreens[tutIndex].title;
+  $("tutText").textContent = tutorialScreens[tutIndex].text;
+  $("tutProgress").textContent = (tutIndex + 1) + " of 5";
+  $("tutNext").textContent = tutIndex === 4 ? "Start Practising" : "Next";
+}
+
+async function finishTutorial() {
+  $("tutorialOverlay").classList.add("hidden");
+  await call("POST", "/auth/me/tutorial-done");
+}
+
+$("tutNext").addEventListener("click", () => {
+  if (tutIndex < 4) {
+    tutIndex++;
+    updateTutorial();
+  } else {
+    finishTutorial();
+  }
+});
+
+$("tutSkip").addEventListener("click", finishTutorial);
 let token = sessionStorage.getItem("token") || "";
 const $ = (id) => document.getElementById(id);
 const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
@@ -271,7 +318,15 @@ function minutesText(seconds) {
 async function start() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
+  
+  // Check if tutorial is needed
+  const me = await call("GET", "/auth/me");
+  if (!me.tutorial_seen) {
+    showTutorial();
+  }
+  
   const res = await api("/sources");
+  // ... rest of the function
   const sources = (await res.json()).filter((s) => s.status === "ready");
   const select = $("sourceSelect");
   select.replaceChildren(el("option", { value: "", text: "All my sources" }));

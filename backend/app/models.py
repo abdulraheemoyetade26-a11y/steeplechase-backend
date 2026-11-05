@@ -28,6 +28,7 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    tutorial_seen: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Course(Base):
