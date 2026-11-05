@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page editor</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1b1b1b; --card:#f3f4f6; --line:#d0d5dd; --accent:#1f6feb; --muted:#667085; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181d; --fg:#e8e8e8; --card:#20242b; --line:#3a404a; --accent:#58a6ff; --muted:#98a2b3; }
+  }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  main { padding:16px; max-width:1000px; margin:0 auto; }
+  .hidden { display:none; }
+  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
+  input[type=text], input[type=password], input[type=email] { width:100%; box-sizing:border-box; margin-top:6px; }
+  input[type=radio] { padding:0; }
+  button { cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  #login { max-width:360px; margin:60px auto; padding:0 16px; }
+  #stage { position:relative; display:inline-block; max-width:100%; line-height:0; }
+  #pageImg { display:block; max-width:100%; height:auto; }
+  #overlay { position:absolute; inset:0; touch-action:none; cursor:crosshair; }
+  .box { position:absolute; box-sizing:border-box; border:2px solid; cursor:pointer; }
+  .box.proposed { border-style:dashed; border-color:#f59e0b; }
+  .box.auto { border-color:#2563eb; background:#2563eb22; }
+  .box.verified { border-color:#16a34a; background:#16a34a33; }
+  .box.selected { outline:3px solid var(--accent); }
+  .box.draft { border-color:var(--accent); background:#1f6feb33; pointer-events:none; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:12px; }
+  .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .hint { color:var(--muted); font-size:0.9rem; }
+  #msg, .msg { color:#d92d20; min-height:1.2em; margin:8px 0; }
+  #preview { max-width:100%; margin-top:12px; display:none; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <h2>Page editor</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <p><button class="primary" id="loginBtn">Log in</button></p>
+  <div class="msg" id="loginMsg"></div>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <select id="sourceSelect"></select>
+    <input id="pagesInput" type="text" placeholder="Pages, e.g. 34 or 30-34 (blank = all with images)" style="width:300px; margin-top:0">
+    <button id="renderBtn">Render pages and read labels</button>
+    <select id="pageSelect"></select>
+    <label><input type="radio" name="mode" value="label" checked> Draw label box</label>
+    <label><input type="radio" name="mode" value="crop"> Draw spotter crop</label>
+    <a href="/review">Image review</a>
+  </header>
+  <main>
+    <div id="msg"></div>
+    <p class="hint">Blue boxes were accepted automatically. Dashed orange boxes are low confidence proposals. Green boxes are verified by you. Click a box to edit it, or drag on the page to draw a new one.</p>
+    <div id="stage">
+      <img id="pageImg" alt="Rendered page">
+      <div id="overlay"></div>
+    </div>
+    <div id="panel" class="panel" style="display:none"></div>
+    <div class="row">
+      <button id="hideAllBtn">Preview: hide all usable labels</button>
+      <button id="approveBtn">Approve remaining blue boxes on this page</button>
+    </div>
+    <img id="preview" alt="Practice preview">
+  </main>
+</section>
+
+<script>
+let token = sessionStorage.getItem("token") || "";
+const $ = (id) => document.getElementById(id);
+const state = { pageId: null, regions: [], draft: null, draftBox: null };
+
+function el(tag, attrs = {}, ...kids) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "text") node.textContent = value;
+    else node.setAttribute(key, value);
+  }
+  kids.forEach((kid) => node.appendChild(kid));
+  return node;
+}
+
+function say(text) { $("msg").textContent = text || ""; }
+
+function showLogin(message) {
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("loginMsg").textContent = message || "";
+}
+
+async function login() {
+  const body = new URLSearchParams({ username: $("email").value, password: $("password").value });
+  const res = await fetch("/auth/login", { method: "POST", body });
+  if (!res.ok) { $("loginMsg").textContent = "Wrong email or password"; return; }
+  token = (await res.json()).access_token;
+  sessionStorage.setItem("token", token);
+  start().catch(() => {});
+}
+
+async function api(path, options = {}) {
+  options.headers = Object.assign({}, options.headers, { Authorization: "Bearer " + token });
+  const res = await fetch(path, options);
+  if (res.status === 401) {
+    showLogin("Please log in again");
+    throw new Error("Not logged in");
+  }
+  return res;
+}
+
+async function send(method, path, body) {
+  const res = await api(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = "Request failed";
+    try { const err = await res.json(); if (typeof err.detail === "string") detail = err.detail; } catch (e) {}
+    say(detail);
+    return null;
+  }
+  say("");
+  return res.json();
+}
+
+function splitAnswers(text) { return text.split(","); }
+
+function parsePages(text) {
+  const pages = new Set();
+  for (const part of text.split(",")) {
+    const piece = part.trim();
+    if (!piece) continue;
+    const range = piece.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (range) {
+      const lo = Math.min(Number(range[1]), Number(range[2]));
+      const hi = Math.min(Math.max(Number(range[1]), Number(range[2])), lo + 199);
+      for (let n = lo; n <= hi; n++) pages.add(n);
+    } else if (/^\d+$/.test(piece)) {
+      pages.add(Number(piece));
+    }
+  }
+  return Array.from(pages).sort((a, b) => a - b);
+}
+
+async function start() {
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  await loadSources();
+}
+
+async function loadSources() {
+  const res = await api("/sources");
+  const sources = (await res.json()).filter((s) => s.status === "ready" && (s.file_type === "pdf" || s.file_type === "pptx"));
+  const select = $("sourceSelect");
+  select.replaceChildren(el("option", { value: "", text: "Choose a source" }));
+  sources.forEach((s) => select.appendChild(el("option", { value: String(s.id), text: s.filename })));
+}
+
+async function loadPages() {
+  const sid = $("sourceSelect").value;
+  const select = $("pageSelect");
+  select.replaceChildren(el("option", { value: "", text: "Choose a page" }));
+  if (!sid) return;
+  const res = await api("/pages?source_id=" + sid);
+  (await res.json()).forEach((p) => select.appendChild(el("option", { value: String(p.id), text: "Page " + p.page_number })));
+}
+
+async function renderPages() {
+  const sid = $("sourceSelect").value;
+  if (!sid) { say("Choose a source first"); return; }
+  const body = { ocr: true };
+  const pages = parsePages($("pagesInput").value);
+  if (pages.length) body.pages = pages;
+  say("Rendering and reading labels. This can take a while, so start with a few pages...");
+  const result = await send("POST", "/pages/render/" + sid, body);
+  if (!result) return;
+  let text = result.rendered_new_pages + " new page(s) rendered.";
+  if (result.ocr) text += " Labels read on " + result.ocr.pages_processed + " page(s): " + result.ocr.labels_found + " found.";
+  if (result.ocr_error) text += " Label reading failed: " + result.ocr_error;
+  say(text);
+  loadPages();
+}
+
+async function loadPage() {
+  const id = $("pageSelect").value;
+  state.pageId = id ? Number(id) : null;
+  clearDraft();
+  closePanel();
+  $("overlay").replaceChildren();
+  $("preview").style.display = "none";
+  if (!state.pageId) { $("pageImg").removeAttribute("src"); return; }
+  const imgRes = await api("/pages/" + id + "/file");
+  $("pageImg").src = URL.createObjectURL(await imgRes.blob());
+  await reloadRegions();
+}
+
+async function reloadRegions() {
+  const res = await api("/pages/" + state.pageId + "/regions");
+  state.regions = await res.json();
+  drawBoxes();
+}
+
+function placeBox(box, r) {
+  box.style.left = r.x0 * 100 + "%";
+  box.style.top = r.y0 * 100 + "%";
+  box.style.width = (r.x1 - r.x0) * 100 + "%";
+  box.style.height = (r.y1 - r.y0) * 100 + "%";
+}
+
+function drawBoxes(selectedId) {
+  const overlay = $("overlay");
+  overlay.replaceChildren();
+  state.regions.filter((r) => r.status !== "rejected").forEach((r) => {
+    const box = el("div", { class: "box " + r.status + (r.id === selectedId ? " selected" : ""), title: r.text });
+    placeBox(box, r);
+    box.addEventListener("pointerdown", (e) => e.stopPropagation());
+    box.addEventListener("click", () => { clearDraft(); drawBoxes(r.id); showEdit(r); });
+    overlay.appendChild(box);
+  });
+}
+
+function clearDraft() {
+  if (state.draftBox) state.draftBox.remove();
+  state.draft = null;
+  state.draftBox = null;
+}
+
+function closePanel() { $("panel").style.display = "none"; $("panel").replaceChildren(); }
+
+function fields(values) {
+  const text = el("input", { type: "text", placeholder: values.textHint, value: values.text || "" });
+  const answers = el("input", { type: "text", placeholder: "Also accept (synonyms, separated by commas)", value: (values.answers || []).join(", ") });
+  return { text, answers };
+}
+
+function showPanel(nodes) {
+  const panel = $("panel");
+  panel.replaceChildren(...nodes);
+  panel.style.display = "block";
+}
+
+function showEdit(region) {
+  const f = fields({ textHint: "Label text", text: region.text, answers: region.accepted_answers });
+  const save = async (status) => {
+    const body = { text: f.text.value, accepted_answers: splitAnswers(f.answers.value) };
+    if (status) body.status = status;
+    if (!f.text.value.trim()) { say("Label text cannot be empty"); return; }
+    if (await send("PATCH", "/regions/" + region.id, body)) { closePanel(); await reloadRegions(); }
+  };
+  const verify = el("button", { class: "primary", text: "Verify (testable)" });
+  const saveBtn = el("button", { text: "Save changes" });
+  const reject = el("button", { text: "Reject" });
+  const del = el("button", { text: "Delete" });
+  const hide = el("button", { text: "Preview: hide this label" });
+  verify.addEventListener("click", () => save("verified"));
+  saveBtn.addEventListener("click", () => save(null));
+  reject.addEventListener("click", async () => {
+    if (await send("PATCH", "/regions/" + region.id, { status: "rejected" })) { closePanel(); await reloadRegions(); }
+  });
+  del.addEventListener("click", async () => {
+    if (await send("DELETE", "/regions/" + region.id)) { closePanel(); await reloadRegions(); }
+  });
+  hide.addEventListener("click", () => preview("single", region.id));
+  showPanel([
+    el("strong", { text: "Edit label box (" + region.origin + ", " + region.status + ", confidence " + Math.round(region.confidence) + ")" }),
+    f.text, f.answers,
+    el("div", { class: "row" }, verify, saveBtn, reject, del, hide),
+  ]);
+}
+
+function showNewLabel() {
+  const f = fields({ textHint: "What does this label say?" });
+  const add = el("button", { class: "primary", text: "Add label box" });
+  const cancel = el("button", { text: "Cancel" });
+  add.addEventListener("click", async () => {
+    const d = state.draft;
+    const created = await send("POST", "/pages/" + state.pageId + "/regions", {
+      x0: d.x0, y0: d.y0, x1: d.x1, y1: d.y1, text: f.text.value, accepted_answers: splitAnswers(f.answers.value),
+    });
+    if (created) { clearDraft(); closePanel(); await reloadRegions(); }
+  });
+  cancel.addEventListener("click", () => { clearDraft(); closePanel(); });
+  showPanel([el("strong", { text: "New label box" }), f.text, f.answers, el("div", { class: "row" }, add, cancel)]);
+}
+
+function showNewCrop() {
+  const f = fields({ textHint: "Correct answer for this spotter image" });
+  const note = el("input", { type: "text", placeholder: "Note, for example: the arrow points to the structure" });
+  const save = el("button", { class: "primary", text: "Save as spotter image" });
+  const cancel = el("button", { text: "Cancel" });
+  save.addEventListener("click", async () => {
+    const d = state.draft;
+    const created = await send("POST", "/pages/" + state.pageId + "/crop", {
+      x0: d.x0, y0: d.y0, x1: d.x1, y1: d.y1, label: f.text.value, accepted_answers: splitAnswers(f.answers.value), note: note.value,
+    });
+    if (created) { say("Spotter image saved and verified"); clearDraft(); closePanel(); }
+  });
+  cancel.addEventListener("click", () => { clearDraft(); closePanel(); });
+  showPanel([el("strong", { text: "New spotter crop" }), f.text, f.answers, note, el("div", { class: "row" }, save, cancel)]);
+}
+
+async function preview(mode, regionId) {
+  if (!state.pageId) return;
+  let url = "/pages/" + state.pageId + "/practice?mode=" + mode;
+  if (regionId) url += "&region_id=" + regionId;
+  const res = await api(url);
+  if (!res.ok) {
+    let detail = "Could not build the preview";
+    try { const err = await res.json(); if (typeof err.detail === "string") detail = err.detail; } catch (e) {}
+    say(detail);
+    return;
+  }
+  say("");
+  const img = $("preview");
+  img.src = URL.createObjectURL(await res.blob());
+  img.style.display = "block";
+}
+
+const overlay = $("overlay");
+let drag = null;
+
+function pointFrom(e) {
+  const r = overlay.getBoundingClientRect();
+  return {
+    x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+    y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
+  };
+}
+
+overlay.addEventListener("pointerdown", (e) => {
+  if (!state.pageId) return;
+  clearDraft();
+  closePanel();
+  drawBoxes();
+  const p = pointFrom(e);
+  drag = { x: p.x, y: p.y };
+  state.draftBox = el("div", { class: "box draft" });
+  overlay.appendChild(state.draftBox);
+  overlay.setPointerCapture(e.pointerId);
+});
+
+overlay.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const p = pointFrom(e);
+  placeBox(state.draftBox, { x0: Math.min(drag.x, p.x), y0: Math.min(drag.y, p.y), x1: Math.max(drag.x, p.x), y1: Math.max(drag.y, p.y) });
+});
+
+overlay.addEventListener("pointerup", (e) => {
+  if (!drag) return;
+  const p = pointFrom(e);
+  const rect = { x0: Math.min(drag.x, p.x), y0: Math.min(drag.y, p.y), x1: Math.max(drag.x, p.x), y1: Math.max(drag.y, p.y) };
+  drag = null;
+  if (rect.x1 - rect.x0 < 0.01 || rect.y1 - rect.y0 < 0.01) { clearDraft(); return; }
+  state.draft = rect;
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  if (mode === "crop") showNewCrop(); else showNewLabel();
+});
+
+$("loginBtn").addEventListener("click", login);
+$("sourceSelect").addEventListener("change", loadPages);
+$("pageSelect").addEventListener("change", loadPage);
+$("renderBtn").addEventListener("click", renderPages);
+$("hideAllBtn").addEventListener("click", () => preview("all"));
+$("approveBtn").addEventListener("click", async () => {
+  if (!state.pageId) return;
+  if (!confirm("Approve every remaining blue box on this page? Reject or fix mistakes first.")) return;
+  const result = await send("POST", "/pages/" + state.pageId + "/approve-auto");
+  if (result) { say(result.approved + " box(es) approved"); await reloadRegions(); }
+});
+
+if (token) start().catch(() => {});
+else showLogin("");
+</script>
+</body>
+</html>

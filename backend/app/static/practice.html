@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Steeplechase practice</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1b1b1b; --card:#f3f4f6; --line:#d0d5dd; --accent:#1f6feb; --muted:#667085; --good:#16a34a; --bad:#dc2626; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181d; --fg:#e8e8e8; --card:#20242b; --line:#3a404a; --accent:#58a6ff; --muted:#98a2b3; }
+  }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  main { padding:16px; max-width:900px; margin:0 auto; }
+  /* Mobile Practice Fixes */
+  #stationBox { display: flex; flex-direction: column; height: 80vh; height: 80dvh; }
+  .imgbox { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .imgbox img { max-height: 100%; max-width: 100%; object-fit: contain; touch-action: pinch-zoom; }
+  #inputs { margin-top: 10px; }
+  #inputs input { font-size: 16px; /* Prevents iPhone auto-zoom */ }
+  .hidden { display:none; }
+  label { display:block; margin:10px 0; }
+  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
+  input[type=text], input[type=password], input[type=email] { width:100%; box-sizing:border-box; margin-top:6px; }
+  input[type=number] { width:100px; margin-left:8px; }
+  button { cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
+  #login { max-width:360px; margin:60px auto; padding:0 16px; }
+  .msg { color:#d92d20; min-height:1.2em; margin:8px 0; }
+  .hint { color:var(--muted); font-size:0.92rem; }
+  .banner { background:#16a34a22; border:1px solid var(--good); border-radius:10px; padding:10px 12px; margin:12px 0; }
+  .options { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; }
+  #timer, #restTimer, #reviewTimer { font-size:2.2rem; font-weight:700; margin:8px 0; }
+  .imgbox { display:flex; justify-content:center; background:#0001; border-radius:8px; min-height:120px; }
+  .imgbox img { max-width:100%; max-height:70vh; object-fit:contain; }
+  #inputs input, #reviewInput { margin-top:8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin:16px 0; }
+  .options .card { margin:0; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .item { padding:8px 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .item.exact, .item.close { border-left:4px solid var(--good); padding-left:8px; }
+  .item.wrong, .item.blank { border-left:4px solid var(--bad); padding-left:8px; }
+  .item.unscored, .item.flagged { border-left:4px solid var(--muted); padding-left:8px; }
+  .item.unscored, .item.flagged { border-left:4px solid var(--muted); padding-left:8px; }
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <h2>Steeplechase practice</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <p><button class="primary" id="loginBtn">Log in</button></p>
+  <div class="msg" id="loginMsg"></div>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <strong>Steeplechase practice</strong>
+    <a href="/review">Image review</a>
+    <a href="/editor">Page editor</a>
+  </header>
+  <main>
+
+    <section id="choose">
+      <h2>How do you want to prepare?</h2>
+      <div id="planStatus" class="hint" style="margin-bottom: 10px;"></div>
+      <div class="card">
+        <strong>Add a lecture file</strong>
+        <p class="hint">PDF or PowerPoint (.pptx). Processing starts automatically, and you can use what is ready while it continues.</p>
+        <input type="file" id="fileInput" accept=".pdf,.pptx">
+        <div class="row"><button id="uploadBtn">Upload and process</button></div>
+        <div class="msg" id="uploadMsg"></div>
+        <div class="row" style="margin-top: 10px;">
+          <input type="text" id="redeemCode" placeholder="Enter activation code" style="width: 200px;">
+          <button id="redeemBtn">Redeem</button>
+        </div>
+      </div>
+      <div id="processing" class="banner hidden"></div>
+      <label>Source
+        <select id="sourceSelect"></select>
+      </label>
+      <div id="banner" class="banner hidden"></div>
+      <div class="options">
+        <div class="card">
+          <h3>Option A: Start now</h3>
+          <p id="optA"></p>
+          <button class="primary" id="goSetup">Set up practice</button>
+        </div>
+        <div class="card">
+          <h3>Option B: Review first, then practice</h3>
+          <p id="optB"></p>
+          <label>Minutes you can spare <input id="minutes" type="number" min="1" max="120" value="5"></label>
+          <p id="optBEstimate" class="hint"></p>
+          <button id="goReview">Start timed review</button>
+        </div>
+      </div>
+      <div class="msg" id="chooseMsg"></div>
+    </section>
+
+    <section id="review" class="hidden">
+      <h2>Check the held-back labels</h2>
+      <div id="reviewTimer"></div>
+      <p class="hint">Does the text below match the label inside the blue outline? Press Enter if it does. If it is slightly wrong, correct the text first, then press Enter. Press Shift and Enter if it is not a label. Labels you confirm become fully trusted, so your answers on them always count.</p>
+      <p id="reviewCounts"></p>
+      <div class="imgbox"><img id="reviewImg" alt="Label to check"></div>
+      <p id="reviewConf" class="hint"></p>
+      <input id="reviewInput" type="text" autocomplete="off" placeholder="Label text">
+      <div class="row">
+        <button class="primary" id="confirmBtn" style="padding: 15px; font-size: 18px;">✅ Looks right</button>
+        <button id="notLabelBtn" style="padding: 15px; font-size: 18px; background: #dc2626; color: white;">❌ Not a label</button>
+        <button id="undoBtn">Undo last</button>
+        <button id="stopReviewBtn">Stop review</button>
+      </div>
+      <div class="msg" id="reviewMsg"></div>
+    </section>
+
+    <section id="setup" class="hidden">
+      <h2>Set up your practice</h2>
+      <label>Number of stations <input id="stations" type="number" min="1" max="60" value="10"></label>
+      <label>Seconds per station <input id="seconds" type="number" min="10" max="600" value="60"></label>
+      <label>Labels hidden per station <input id="labels" type="number" min="1" max="10" value="1"></label>
+      <label>Rest after every N stations (0 = no rest) <input id="restEvery" type="number" min="0" max="20" value="0"></label>
+      <label>Rest seconds <input id="restSeconds" type="number" min="5" max="300" value="30"></label>
+      <div class="row">
+        <button class="primary" id="startBtn">Start practice</button>
+        <button id="backBtn">Back</button>
+      </div>
+      <div class="msg" id="setupMsg"></div>
+    </section>
+
+    <section id="run" class="hidden">
+      <h2 id="runTitle"></h2>
+      <div id="stationBox">
+        <div id="timer"></div>
+        <div class="imgbox"><img id="runImg" alt="Station"></div>
+        <div id="inputs"></div>
+        <p><button class="primary" id="submitBtn">Submit answers</button></p>
+      </div>
+      <div id="restBox" class="hidden">
+        <p>Rest station. Take a breath.</p>
+        <div id="restTimer"></div>
+        <button id="skipRest">Skip rest</button>
+      </div>
+      <div class="msg" id="runMsg"></div>
+      <p><button id="endBtn">End session now</button></p>
+    </section>
+
+    <section id="results" class="hidden"></section>
+  </main>
+</section>
+
+<script>
+let token = sessionStorage.getItem("token") || "";
+const $ = (id) => document.getElementById(id);
+const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
+const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
+const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
+
+function el(tag, attrs = {}, ...kids) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "text") node.textContent = value;
+    else node.setAttribute(key, value);
+  }
+  kids.forEach((kid) => node.appendChild(kid));
+  return node;
+}
+
+function show(name) {
+  for (const id of ["choose", "review", "setup", "run", "results"]) $(id).classList.toggle("hidden", id !== name);
+}
+
+function showLogin(message) {
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("loginMsg").textContent = message || "";
+}
+
+async function login() {
+  const body = new URLSearchParams({ username: $("email").value, password: $("password").value });
+  const res = await fetch("/auth/login", { method: "POST", body });
+  if (!res.ok) { $("loginMsg").textContent = "Wrong email or password"; return; }
+  token = (await res.json()).access_token;
+  sessionStorage.setItem("token", token);
+  start().catch(() => {});
+}
+
+async function api(path, options = {}) {
+  options.headers = Object.assign({}, options.headers, { Authorization: "Bearer " + token });
+  const res = await fetch(path, options);
+  if (res.status === 401) { showLogin("Please log in again"); throw new Error("Not logged in"); }
+  return res;
+}
+
+async function call(method, path, body) {
+  const res = await api(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) {
+    let message = "Request failed";
+    if (data && typeof data.detail === "string") message = data.detail;
+    else if (data && Array.isArray(data.detail)) message = data.detail.map((d) => d.msg).join("; ");
+    throw new Error(message);
+  }
+  return data;
+}
+
+function minutesText(seconds) {
+  const m = Math.max(1, Math.ceil(seconds / 60));
+  return m + " minute" + (m === 1 ? "" : "s");
+}
+
+/* ---------- chooser ---------- */
+
+async function start() {
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  const res = await api("/sources");
+  const sources = (await res.json()).filter((s) => s.status === "ready");
+  const select = $("sourceSelect");
+  select.replaceChildren(el("option", { value: "", text: "All my sources" }));
+  sources.forEach((s) => select.appendChild(el("option", { value: String(s.id), text: s.filename })));
+  show("choose");
+  await loadReadiness();
+}
+
+async function loadReadiness() {
+  $("chooseMsg").textContent = "";
+  const sid = $("sourceSelect").value;
+  let data;
+  try {
+    data = await call("GET", "/practice/readiness" + (sid ? "?source_id=" + sid : ""));
+  } catch (e) {
+    $("chooseMsg").textContent = e.message;
+    return;
+  }
+  readiness.seconds = data.seconds_per_label;
+  readiness.labels = data.sources.reduce((a, s) => a + s.ready_labels, 0);
+  readiness.pages = data.sources.reduce((a, s) => a + s.ready_pages, 0);
+  readiness.held = data.sources.reduce((a, s) => a + s.held_back_labels, 0);
+  if (data.plan) {
+    $("planStatus").textContent = data.plan.plan.toUpperCase() + " plan: " + data.plan.pages_used + " of " + data.plan.pages_limit + " pages used this month.";
+  }
+
+  if (readiness.labels > 0) {
+    $("optA").textContent = readiness.labels + " labels on " + readiness.pages + " pages are ready. You can start right away. A few labels may show as \"Not scored\" if their answer key could not be fully verified.";
+  } else {
+    $("optA").textContent = "Nothing is ready yet. Process a source in the page editor, or use Option B to check labels first.";
+  }
+  $("goSetup").disabled = readiness.labels === 0;
+
+  if (readiness.held > 0) {
+    $("optB").textContent = readiness.held + " labels are held back until someone checks them. Checking all of them would take about " + minutesText(readiness.held * readiness.seconds) + ".";
+  } else {
+    $("optB").textContent = "Nothing is held back. Every label that was found is already ready.";
+  }
+  $("goReview").disabled = readiness.held === 0;
+  updateEstimate();
+  showProcessing(data);
+}
+
+function updateEstimate() {
+  const minutes = Math.max(1, Number($("minutes").value) || 1);
+  const can = Math.min(readiness.held, Math.floor((minutes * 60) / readiness.seconds));
+  $("optBEstimate").textContent = readiness.held > 0
+    ? "In " + minutes + " minute" + (minutes === 1 ? "" : "s") + " you can check about " + can + " labels, starting with the ones most likely to be right."
+    : "";
+}
+
+let pollTimer = null;
+
+function showProcessing(data) {
+  clearTimeout(pollTimer);
+  const box = $("processing");
+  box.replaceChildren(); // Clear out old text/buttons
+  
+  const active = data.sources.filter((s) => s.processing && ["queued", "running"].includes(s.processing.status));
+  const failed = data.sources.filter((s) => s.processing && s.processing.status === "failed");
+  
+  if (active.length) {
+    active.forEach(s => {
+      const p = s.processing;
+      const text = s.filename + ": " + (p.status === "queued" ? "waiting to start" : "page " + p.pages_done + " of " + p.pages_total);
+      const btn = el("button", { text: "Cancel", style: "margin-left: 10px; padding: 2px 8px;" });
+      btn.addEventListener("click", () => cancelJob(p.id));
+      
+      box.appendChild(el("div", { text: text }, btn));
+    });
+    box.appendChild(el("div", { text: "You can start practicing with what is ready, or check labels, while this continues.", style: "margin-top: 8px; font-size: 0.9em;" }));
+  }
+  
+  failed.forEach((s) => {
+    box.appendChild(el("div", { text: "Processing failed for " + s.filename + ": " + (s.processing.error || "unknown error") }));
+  });
+  
+  if (!active.length && !failed.length) { 
+    box.classList.add("hidden"); 
+    return; 
+  }
+  box.classList.remove("hidden");
+  if (active.length) pollTimer = setTimeout(loadReadiness, 3000);
+}
+
+async function cancelJob(jobId) {
+  if (!confirm("Are you sure you want to cancel processing this file?")) return;
+  try {
+    await call("POST", "/jobs/" + jobId + "/cancel");
+    await loadReadiness(); // Refresh immediately
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function upload() {
+  const file = $("fileInput").files[0];
+  if (!file) { $("uploadMsg").textContent = "Choose a file first"; return; }
+  $("uploadMsg").textContent = "Uploading and reading the text. Large files can take a minute...";
+  const form = new FormData();
+  form.append("file", file);
+  form.append("process", "true");
+  let res, data = null;
+  try {
+    res = await api("/sources/upload", { method: "POST", body: form });
+    try { data = await res.json(); } catch (e) {}
+  } catch (e) {
+    $("uploadMsg").textContent = "Upload failed";
+    return;
+  }
+  if (!res.ok) {
+    $("uploadMsg").textContent = data && typeof data.detail === "string" ? data.detail : "Upload failed";
+    return;
+  }
+  if (data.status === "failed") {
+    $("uploadMsg").textContent = data.error || "The file could not be read";
+    return;
+  }
+  $("uploadMsg").textContent = "Uploaded. Processing has started.";
+  $("fileInput").value = "";
+  await start();
+  $("sourceSelect").value = String(data.id);
+  await loadReadiness();
+}
+
+/* ---------- option B: timed review ---------- */
+
+function updateCounters() {
+  $("reviewCounts").textContent = "Unlocked: " + review.unlocked + "   Removed: " + review.removed;
+}
+
+async function startReview() {
+  const minutes = Math.max(1, Number($("minutes").value) || 5);
+  review.queue = [];
+  review.history = [];
+  review.index = 0;
+  review.unlocked = 0;
+  review.removed = 0;
+  review.current = null;
+  review.busy = false;
+  review.active = true;
+  review.endAt = Date.now() + minutes * 60000;
+  $("reviewMsg").textContent = "";
+  show("review");
+  updateCounters();
+  tickReview();
+  review.timer = setInterval(tickReview, 500);
+  
+  // Load the first batch of items immediately
+  try {
+    const sid = $("sourceSelect").value;
+    const data = await call("GET", "/label-review/queue?limit=30" + (sid ? "&source_id=" + sid : ""));
+    review.queue = data.items;
+    await nextItem();
+  } catch (e) {
+    $("reviewMsg").textContent = e.message;
+  }
+}
+
+function tickReview() {
+  const left = Math.max(0, Math.ceil((review.endAt - Date.now()) / 1000));
+  $("reviewTimer").textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+  if (left <= 0) finishReview();
+}
+
+async function nextItem() {
+  if (!review.active) return;
+  if (review.index >= review.queue.length) {
+    const sid = $("sourceSelect").value;
+    const data = await call("GET", "/label-review/queue?limit=30" + (sid ? "&source_id=" + sid : ""));
+    if (!review.active) return;
+    review.queue = data.items;
+    review.index = 0;
+    if (!review.queue.length) { finishReview(); return; }
+  }
+  const item = review.queue[review.index];
+  review.current = item;
+  $("reviewImg").removeAttribute("src");
+  $("reviewInput").value = item.text;
+  $("reviewConf").textContent = "Machine confidence: " + Math.round(item.confidence) + "   (source page " + item.page_number + ")";
+  $("reviewInput").focus();
+  const res = await api("/label-review/" + item.region_id + "/crop");
+  if (review.active && review.current === item && res.ok) $("reviewImg").src = URL.createObjectURL(await res.blob());
+}
+
+async function decide(kind) {
+  const item = review.current;
+  if (!review.active || !item || review.busy) return;
+  review.busy = true;
+  const typed = $("reviewInput").value.trim();
+  let decision = kind;
+  if (kind === "confirm") decision = typed !== item.text ? "fix" : "correct";
+  
+  try {
+    await call("POST", "/label-review/" + item.region_id + "/decision", { decision, text: typed });
+  } catch (e) {
+    $("reviewMsg").textContent = e.message;
+    review.busy = false;
+    return;
+  }
+  
+  $("reviewMsg").textContent = "";
+  if (decision === "reject") review.removed += 1; else review.unlocked += 1;
+  
+  // Save to history for multi-step undo
+  review.history.push({ item, decision });
+  
+  review.index += 1;
+  updateCounters();
+  review.busy = false;
+  try { await nextItem(); } catch (e) { $("reviewMsg").textContent = e.message; }
+}
+
+async function undo() {
+  if (!review.active || review.history.length === 0 || review.busy) return;
+  review.busy = true;
+  const { item, decision } = review.history.pop();
+  
+  try {
+    await call("POST", "/label-review/" + item.region_id + "/undo");
+  } catch (e) {
+    $("reviewMsg").textContent = e.message;
+    review.busy = false;
+    return;
+  }
+  
+  if (decision === "reject") review.removed -= 1; else review.unlocked -= 1;
+  
+  review.queue.splice(review.index, 0, item);
+  updateCounters();
+  review.busy = false;
+  
+  try { await nextItem(); } catch (e) { $("reviewMsg").textContent = e.message; }
+}
+
+async function finishReview() {
+  if (!review.active) return;
+  review.active = false;
+  clearInterval(review.timer);
+  show("choose");
+  const banner = $("banner");
+  banner.textContent = "Review finished: " + review.unlocked + " label(s) unlocked, " + review.removed + " removed.";
+  banner.classList.remove("hidden");
+  await loadReadiness();
+}
+
+/* ---------- option A and the practice run ---------- */
+
+async function begin() {
+  $("setupMsg").textContent = "";
+  const body = {
+    station_count: Number($("stations").value),
+    seconds_per_station: Number($("seconds").value),
+    labels_per_station: Number($("labels").value),
+    rest_every: Number($("restEvery").value),
+    rest_seconds: Number($("restSeconds").value),
+  };
+  if ($("sourceSelect").value) body.source_ids = [Number($("sourceSelect").value)];
+  try {
+    run.session = await call("POST", "/practice/sessions", body);
+  } catch (e) {
+    $("setupMsg").textContent = e.message;
+    return;
+  }
+  run.index = 0;
+  $("runMsg").textContent = "";
+  next();
+}
+
+function next() {
+  clearInterval(run.timer);
+  const stations = run.session.stations;
+  if (run.index >= stations.length) { finish(); return; }
+  const station = stations[run.index];
+  run.index += 1;
+  if (station.kind === "rest") showRest(); else showStation(station);
+}
+
+function showRest() {
+  show("run");
+  $("runTitle").textContent = "Rest";
+  $("stationBox").classList.add("hidden");
+  $("restBox").classList.remove("hidden");
+  let left = run.session.rest_seconds;
+  $("restTimer").textContent = left + " s";
+  run.timer = setInterval(() => {
+    left -= 1;
+    $("restTimer").textContent = Math.max(left, 0) + " s";
+    if (left <= 0) next();
+  }, 1000);
+}
+
+async function showStation(station) {
+  show("run");
+  $("restBox").classList.add("hidden");
+  $("stationBox").classList.remove("hidden");
+  const position = run.session.stations.filter((s) => s.kind === "station" && s.number <= station.number).length;
+  $("runTitle").textContent = "Station " + position + " of " + run.session.station_count;
+  $("runMsg").textContent = "";
+  $("runImg").removeAttribute("src");
+  $("inputs").replaceChildren();
+  $("timer").textContent = "";
+  $("submitBtn").disabled = true;
+  run.number = station.number;
+  run.submitting = false;
+
+  let info;
+  try {
+    info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start");
+  } catch (e) {
+    $("runMsg").textContent = e.message;
+    return;
+  }
+  const imageRes = await api("/practice/sessions/" + run.session.id + "/stations/" + station.number + "/image");
+  if (imageRes.ok) $("runImg").src = URL.createObjectURL(await imageRes.blob());
+
+  for (let i = 1; i <= info.labels; i++) {
+    const input = el("input", {
+      type: "text",
+      autocomplete: "off",
+      autocorrect: "off",
+      autocapitalize: "off",
+      spellcheck: "false",
+      placeholder: info.labels > 1 ? "Answer for " + i : "Name the hidden label",
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const all = Array.from($("inputs").querySelectorAll("input"));
+      const at = all.indexOf(input);
+      if (at < all.length - 1) all[at + 1].focus(); else submit();
+    });
+    $("inputs").appendChild(input);
+  }
+
+  const endAt = Date.now() + info.seconds_left * 1000;
+  const tick = () => {
+    const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+    $("timer").textContent = left + " s";
+    if (left <= 0) submit();
+  };
+  tick();
+  run.timer = setInterval(tick, 250);
+  $("submitBtn").disabled = false;
+  const first = $("inputs").querySelector("input");
+  if (first) first.focus();
+}
+
+async function submit() {
+  if (run.submitting) return;
+  run.submitting = true;
+  clearInterval(run.timer);
+  const answers = Array.from($("inputs").querySelectorAll("input")).map((i) => i.value);
+  try {
+    await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + run.number + "/answer", { answers });
+  } catch (e) {
+    $("runMsg").textContent = e.message;
+  }
+  next();
+}
+
+async function finish() {
+  clearInterval(run.timer);
+  try {
+    await call("POST", "/practice/sessions/" + run.session.id + "/finish");
+    renderResults(await call("GET", "/practice/sessions/" + run.session.id + "/results"));
+  } catch (e) {
+    $("runMsg").textContent = e.message;
+  }
+}
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(async (entry) => {
+    if (!entry.isIntersecting) return;
+    const img = entry.target;
+    observer.unobserve(img);
+    const res = await api(img.dataset.url);
+    if (res.ok) img.src = URL.createObjectURL(await res.blob());
+  });
+});
+
+const VERDICT = {
+  exact: "Correct",
+  close: "Correct (check spelling)",
+  wrong: "Wrong",
+  blank: "No answer",
+  unscored: "Not scored (answer key not fully verified)",
+  flagged: "Reported, not counted",
+};
+
+function renderResults(r) {
+  show("results");
+  const box = $("results");
+    box.replaceChildren(
+    el("h2", { text: "Score: " + r.earned + " / " + r.possible + " (" + r.percent + "%)" }),
+    el("p", { text: `If your reports are accepted: ${r.score_if_reports_accepted} / ${r.possible_if_reports_accepted}` }),
+    el("p", { class: "hint", text: "Items marked \"Not scored\" or \"Reported\" use an answer key the app could not fully verify, so a mismatch never counts against you." })
+  );
+  r.stations.forEach((st, index) => {
+    const img = el("img", { alt: "Answer reveal" });
+    img.dataset.url = st.reveal_url;
+    observer.observe(img);
+    const rows = st.items.map((item) => {
+      const flag = el("button", { text: "Report wrong label" });
+      flag.addEventListener("click", async () => {
+        try {
+          await call("POST", "/practice/flags", { region_id: item.region_id });
+          flag.textContent = "Reported";
+          flag.disabled = true;
+        } catch (e) {
+          flag.textContent = e.message;
+        }
+      });
+      const line = "#" + item.number + "  correct: " + item.correct + "  |  you wrote: " + (item.student || "(nothing)") + "  |  " + VERDICT[item.outcome];
+      return el("div", { class: "item " + item.outcome }, el("div", { text: line }), flag);
+    });
+    const title = "Station " + (index + 1) + ": " + (st.source || "deleted source") + ", page " + (st.page_number || "?") + ", " + st.earned + " / " + st.possible;
+    box.appendChild(el("div", { class: "card" }, el("strong", { text: title }), el("div", { class: "imgbox" }, img), ...rows));
+  });
+  const again = el("button", { class: "primary", text: "Back to start" });
+  again.addEventListener("click", async () => { show("choose"); await loadReadiness(); });
+  box.appendChild(again);
+}
+
+/* ---------- wiring ---------- */
+
+$("loginBtn").addEventListener("click", login);
+$("sourceSelect").addEventListener("change", () => { $("banner").classList.add("hidden"); loadReadiness(); });
+$("minutes").addEventListener("input", updateEstimate);
+$("goSetup").addEventListener("click", () => show("setup"));
+$("goReview").addEventListener("click", startReview);
+$("backBtn").addEventListener("click", async () => { show("choose"); await loadReadiness(); });
+$("startBtn").addEventListener("click", begin);
+$("submitBtn").addEventListener("click", submit);
+$("skipRest").addEventListener("click", next);
+$("endBtn").addEventListener("click", finish);
+$("confirmBtn").addEventListener("click", () => decide("confirm"));
+$("notLabelBtn").addEventListener("click", () => decide("reject"));
+$("undoBtn").addEventListener("click", undo);
+$("uploadBtn").addEventListener("click", upload);
+$("stopReviewBtn").addEventListener("click", finishReview);
+$("reviewInput").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  decide(e.shiftKey ? "reject" : "confirm");
+});
+
+if (token) start().catch(() => {});
+else showLogin("");
+$("redeemBtn").addEventListener("click", async () => {
+  const code = $("redeemCode").value;
+  if (!code) return;
+  try {
+    const res = await call("POST", "/plan/redeem", { code });
+    $("uploadMsg").textContent = "Success! You are now on the " + res.plan + " plan.";
+    $("redeemCode").value = "";
+    await loadReadiness(); // Refresh the page count
+  } catch (e) {
+    $("uploadMsg").textContent = e.message;
+  }
+});
+</script>
+</body>
+</html>

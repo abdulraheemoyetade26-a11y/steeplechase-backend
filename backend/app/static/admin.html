@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Steeplechase Admin</title>
+<style>
+  body { font-family: system-ui; padding: 20px; background: #f9fafb; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+  button { padding: 6px 12px; cursor: pointer; }
+  .box { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<h1>Admin Dashboard</h1>
+
+<div class="box">
+  <h3>Generate Codes</h3>
+  <input id="plan" placeholder="pro or basic" value="pro">
+  <input id="days" type="number" value="30">
+  <input id="count" type="number" value="15">
+  <input id="batch" placeholder="batch name" value="beta-pro">
+  <button onclick="generateCodes()">Generate</button>
+  <pre id="codeOutput"></pre>
+</div>
+
+<div class="box">
+  <h3>Users</h3>
+  <table id="userTable"><tr><th>ID</th><th>Email</th><th>Plan</th><th>Pages Used</th><th>Actions</th></tr></table>
+</div>
+
+<div class="box">
+  <h3>Pending Reports</h3>
+  <table id="flagTable"><tr><th>ID</th><th>User</th><th>Label</th><th>Confidence</th><th>Actions</th></tr></table>
+</div>
+
+<script>
+let token = sessionStorage.getItem("token") || "";
+
+async function api(path, options = {}) {
+  options.headers = { ...options.headers, Authorization: "Bearer " + token };
+  const res = await fetch(path, options);
+  if (res.status === 401) {
+    // If token is invalid, ask for login
+    const email = prompt("Admin Email:");
+    const password = prompt("Password:");
+    if (!email || !password) return;
+    const body = new URLSearchParams({ username: email, password });
+    const loginRes = await fetch("/auth/login", { method: "POST", body });
+    if (!loginRes.ok) { alert("Login failed"); return; }
+    const data = await loginRes.json();
+    token = data.access_token;
+    sessionStorage.setItem("token", token);
+    return api(path, options); // Retry the original request
+  }
+  if (!res.ok) alert(await res.text());
+  return res;
+}
+
+async function loadUsers() {
+  const res = await api("/admin/users");
+  if (!res) return;
+  const users = await res.json();
+  const table = document.getElementById("userTable");
+  table.innerHTML = "<tr><th>ID</th><th>Email</th><th>Plan</th><th>Pages Used</th><th>Actions</th></tr>";
+  users.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${u.id}</td><td>${u.email}</td><td>${u.plan}</td><td>${u.pages_used}</td>
+      <td><button onclick="setPlan(${u.id}, 'pro', 30)">Make Pro</button></td>`;
+    table.appendChild(tr);
+  });
+}
+
+async function loadFlags() {
+  const res = await api("/admin/flags");
+  if (!res) return;
+  const flags = await res.json();
+  const table = document.getElementById("flagTable");
+  table.innerHTML = "<tr><th>ID</th><th>User</th><th>Label</th><th>Confidence</th><th>Actions</th></tr>";
+  flags.forEach(f => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${f.id}</td><td>${f.user_email}</td><td>${f.region_text}</td><td>${f.confidence}</td>
+      <td><button onclick="resolveFlag(${f.id}, 'accept')">Accept</button>
+          <button onclick="resolveFlag(${f.id}, 'dismiss')">Dismiss</button></td>`;
+    table.appendChild(tr);
+  });
+}
+
+async function generateCodes() {
+  const plan = document.getElementById("plan").value;
+  const days = document.getElementById("days").value;
+  const count = document.getElementById("count").value;
+  const batch = document.getElementById("batch").value;
+  const res = await api(`/admin/codes/generate?plan=${plan}&days=${days}&count=${count}&batch=${batch}`, { method: "POST" });
+  if (!res) return;
+  const data = await res.json();
+  document.getElementById("codeOutput").textContent = data.generated.join("\n");
+}
+
+async function setPlan(id, plan, days) {
+  if (!confirm("Upgrade this user?")) return;
+  const res = await api(`/admin/users/${id}/plan`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({plan, days}) });
+  if (res) location.reload();
+}
+
+async function resolveFlag(id, decision) {
+  const res = await api(`/admin/flags/${id}/resolve?decision=${decision}`, { method: "POST" });
+  if (res) location.reload();
+}
+
+// Start loading
+if (token) {
+  loadUsers();
+  loadFlags();
+} else {
+  // Trigger login by making a dummy API call that will 401
+  api("/admin/users").then(() => {
+    if (token) {
+      loadUsers();
+      loadFlags();
+    }
+  });
+}
+</script>
+</body>
+</html>

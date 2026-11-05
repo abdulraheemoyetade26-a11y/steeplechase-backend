@@ -1,0 +1,13 @@
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzk0MzMwNzY4fQ.EYxviKkNQ1bFvOJhjzyDd0i8igryL_xQXBld4BXqDl4",
+  "token_type": "bearer"
+}
+
+
+email: abdulraheemoyetade26@gmail.com
+password: Olamilekan@26
+
+
+cd C:\Users\olamilekan\steeplechase\backend
+py -m uvicorn app.main:app
+py -m uvicorn app.main:app --host 0.0.0.0

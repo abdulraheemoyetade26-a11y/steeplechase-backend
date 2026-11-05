@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image review</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1b1b1b; --card:#f3f4f6; --line:#d0d5dd; --accent:#1f6feb; --muted:#667085; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181d; --fg:#e8e8e8; --card:#20242b; --line:#3a404a; --accent:#58a6ff; --muted:#98a2b3; }
+  }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  main { padding:16px; max-width:760px; margin:0 auto; }
+  .hidden { display:none; }
+  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
+  input[type=text], input[type=password], input[type=email] { width:100%; box-sizing:border-box; margin-top:6px; }
+  button { cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:16px; }
+  .imgbox { min-height:160px; display:flex; justify-content:center; background:#0001; border-radius:8px; }
+  .imgbox img { max-width:100%; max-height:420px; object-fit:contain; }
+  .meta { color:var(--muted); font-size:0.9rem; margin:8px 0; }
+  .ctx { white-space:pre-wrap; color:var(--muted); font-size:0.9rem; }
+  .actions { display:flex; gap:8px; margin-top:10px; }
+  .msg { color:#d92d20; margin-top:6px; min-height:1em; }
+  #login { max-width:360px; margin:60px auto; padding:0 16px; }
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <h2>Image review</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <p><button class="primary" id="loginBtn">Log in</button></p>
+  <div class="msg" id="loginMsg"></div>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <select id="sourceSelect"></select>
+    <select id="statusSelect">
+      <option value="proposed">Needs review</option>
+      <option value="verified">Verified</option>
+      <option value="rejected">Rejected</option>
+    </select>
+    <span id="count"></span>
+  </header>
+  <main id="cards"></main>
+</section>
+
+<script>
+let token = sessionStorage.getItem("token") || "";
+const sourceNames = {};
+const $ = (id) => document.getElementById(id);
+
+function el(tag, attrs = {}, ...kids) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "text") node.textContent = value;
+    else node.setAttribute(key, value);
+  }
+  kids.forEach((kid) => node.appendChild(kid));
+  return node;
+}
+
+function showLogin(message) {
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("loginMsg").textContent = message || "";
+}
+
+async function api(path, options = {}) {
+  options.headers = Object.assign({}, options.headers, { Authorization: "Bearer " + token });
+  const res = await fetch(path, options);
+  if (res.status === 401) {
+    showLogin("Please log in again");
+    throw new Error("Not logged in");
+  }
+  return res;
+}
+
+async function login() {
+  const body = new URLSearchParams({ username: $("email").value, password: $("password").value });
+  const res = await fetch("/auth/login", { method: "POST", body });
+  if (!res.ok) {
+    $("loginMsg").textContent = "Wrong email or password";
+    return;
+  }
+  token = (await res.json()).access_token;
+  sessionStorage.setItem("token", token);
+  start();
+}
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(async (entry) => {
+    if (!entry.isIntersecting) return;
+    const img = entry.target;
+    observer.unobserve(img);
+    const res = await api("/images/" + img.dataset.id + "/file");
+    if (res.ok) img.src = URL.createObjectURL(await res.blob());
+  });
+});
+
+function makeCard(item) {
+  const img = el("img", { alt: "Lecture image" });
+  img.dataset.id = item.id;
+  observer.observe(img);
+
+  const where = el("div", {
+    class: "meta",
+    text: (sourceNames[item.source_id] || "Source " + item.source_id) + ", " + item.location_type + " " + item.location_number,
+  });
+  const context = el(
+    "details",
+    {},
+    el("summary", { text: "Text near this image" }),
+    el("p", { class: "ctx", text: item.context_text || "(none)" })
+  );
+  const label = el("input", {
+    type: "text",
+    placeholder: "Correct label, for example: Head of humerus",
+    value: item.label || item.suggested_label || "",
+  });
+  const answers = el("input", {
+    type: "text",
+    placeholder: "Also accept (synonyms, separated by commas)",
+    value: item.accepted_answers.join(", "),
+  });
+  const note = el("input", {
+    type: "text",
+    placeholder: "Note, for example: the arrow points to the structure",
+    value: item.note || "",
+  });
+  const msg = el("div", { class: "msg" });
+  const verify = el("button", { class: "primary", text: "Verify" });
+  const reject = el("button", { text: "Reject" });
+  const card = el(
+    "div",
+    { class: "card" },
+    el("div", { class: "imgbox" }, img),
+    where,
+    context,
+    label,
+    answers,
+    note,
+    el("div", { class: "actions" }, verify, reject),
+    msg
+  );
+
+  async function save(payload) {
+    const res = await api("/images/" + item.id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      msg.textContent = typeof error.detail === "string" ? error.detail : "Could not save";
+      return;
+    }
+    card.remove();
+    const remaining = $("cards").children.length;
+    $("count").textContent = remaining + " image(s) shown";
+  }
+
+  verify.addEventListener("click", () =>
+    save({
+      label: label.value,
+      accepted_answers: answers.value.split(","),
+      note: note.value,
+      status: "verified",
+    })
+  );
+  reject.addEventListener("click", () => save({ status: "rejected" }));
+  return card;
+}
+
+async function loadImages() {
+  const params = new URLSearchParams({ status: $("statusSelect").value });
+  if ($("sourceSelect").value) params.set("source_id", $("sourceSelect").value);
+  const res = await api("/images?" + params.toString());
+  const items = await res.json();
+  const box = $("cards");
+  box.replaceChildren();
+  $("count").textContent = items.length + " image(s) shown";
+  items.forEach((item) => box.appendChild(makeCard(item)));
+}
+
+async function start() {
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  const res = await api("/sources");
+  const sources = await res.json();
+  const select = $("sourceSelect");
+  select.replaceChildren(el("option", { value: "", text: "All sources" }));
+  sources.forEach((source) => {
+    sourceNames[source.id] = source.filename;
+    select.appendChild(el("option", { value: String(source.id), text: source.filename }));
+  });
+  loadImages();
+}
+
+$("loginBtn").addEventListener("click", login);
+$("sourceSelect").addEventListener("change", loadImages);
+$("statusSelect").addEventListener("change", loadImages);
+
+if (token) start().catch(() => showLogin(""));
+else showLogin("");
+</script>
+</body>
+</html>
