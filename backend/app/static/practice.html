@@ -276,8 +276,8 @@ async function handleAuth() {
     const res = await fetch("/auth/login", { method: "POST", body });
     if (res.ok) {
       token = (await res.json()).access_token;
-      localStorage.setItem("token", token);
-      start().catch(() => {});
+      sessionStorage.setItem("token", token);
+      start(); // <--- Make sure this is here
     } else {
       $("loginMsg").textContent = "Wrong email or password.";
     }
@@ -338,15 +338,21 @@ async function start() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   
-  // Check tutorial ONLY if logged in
+  // If there is no token, force them to log in
+  if (!token) {
+    showLogin("");
+    return;
+  }
+
+  // Check tutorial
   try {
     const me = await call("GET", "/auth/me");
     if (!me.tutorial_seen) {
       showTutorial();
     }
   } catch(e) {
-    // If /auth/me fails, they aren't logged in properly. Send them to login.
-    showLogin("Please log in.");
+    // If /auth/me fails, the token is bad. Send to login.
+    showLogin("Session expired. Please log in.");
     return;
   }
 
