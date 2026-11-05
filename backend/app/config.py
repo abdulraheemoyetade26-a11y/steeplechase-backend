@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     access_token_minutes: int = 60 * 24 * 7
     max_upload_mb: int = 25
     tesseract_cmd: str = ""
+    gemini_api_key: str = ""
 
 
 settings = Settings()
