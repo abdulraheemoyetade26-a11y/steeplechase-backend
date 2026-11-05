@@ -173,7 +173,14 @@
   </main>
 </section>
 
-<script>
+let token = localStorage.getItem("token") || "";
+const $ = (id) => document.getElementById(id);
+const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
+const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
+const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
+let isLoginMode = true;
+
+// --- TUTORIAL LOGIC ---
 const TUT_STEPS = [
   "Practise anatomy spotters from your own lecture slides, in minutes.",
   "Add your lecture PDF or PowerPoint. We pull out the diagrams and work in the background. You can close the page and come back.",
@@ -191,7 +198,7 @@ function tutOpen() { tutIndex = 0; tutRender(); $("tutorial").classList.remove("
 function tutClose() {
   $("tutorial").classList.add("hidden");
   try { localStorage.setItem("thaw_tutorial_done", "1"); } catch (e) {}
-  saveTutorialDone(); // This runs in the background
+  saveTutorialDone();
 }
 async function saveTutorialDone() {
   try { await api("/auth/me/tutorial-done", { method: "POST" }); } catch (e) {}
@@ -213,56 +220,6 @@ async function maybeShowTutorial() {
     if (me.tutorial_seen === false || me.tutorial_seen === 0) tutOpen();
   } catch (e) {}
 }
-let token = localStorage.getItem("token") || "";
-const $ = (id) => document.getElementById(id);
-const run = { session: null, index: 0, timer: null, submitting: false, number: 0 };
-const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
-const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
-let isLoginMode = true;
-
-// --- TUTORIAL LOGIC ---
-const tutorialScreens = [
-  { title: "Welcome", text: "Practise anatomy spotters from your own lecture slides, in minutes." },
-  { title: "Upload", text: "Add your lecture PDF or PowerPoint. We pull out the diagrams and start working in the background. You can close the page and come back." },
-  { title: "Two Paths", text: "Option A: practise now with labels the app is confident about. Option B: spend a few minutes checking doubtful labels to unlock more." },
-  { title: "Set Your Timer", text: "Choose how long you get per station, just like in the real exam." },
-  { title: "Practise and Score", text: "Labels are hidden. Type your answers, then see your marks. Think a label is wrong? Tap Report and we will review it." }
-];
-let tutIndex = 0;
-
-function showTutorial() {
-  $("tutorialOverlay").classList.remove("hidden");
-  updateTutorial();
-}
-
-function updateTutorial() {
-  const screen = tutorialScreens[tutIndex];
-  $("tutTitle").textContent = screen.title;
-  $("tutText").textContent = screen.text;
-  $("tutProgress").textContent = (tutIndex + 1) + " of 5";
-  $("tutNext").textContent = tutIndex === 4 ? "Start Practising" : "Next";
-}
-
-async function finishTutorial() {
-  $("tutorialOverlay").classList.add("hidden");
-  try { 
-    await call("POST", "/auth/me/tutorial-done"); 
-  } catch(e) {
-    console.log("Could not save tutorial status");
-  }
-}
-
-
-$("tutNext").addEventListener("click", () => {
-  if (tutIndex < 4) {
-    tutIndex++;
-    updateTutorial();
-  } else {
-    finishTutorial();
-  }
-});
-
-$("tutSkip").addEventListener("click", finishTutorial);
 // ----------------------
 
 function el(tag, attrs = {}, ...kids) {
@@ -282,7 +239,6 @@ function show(name) {
 function showLogin(message) {
   $("app").classList.add("hidden");
   $("login").classList.remove("hidden");
-  $("tutorialOverlay").classList.add("hidden"); // <--- ADD THIS LINE
   $("loginMsg").textContent = message || "";
 }
 
@@ -333,7 +289,7 @@ async function handleAuth() {
       if (loginRes.ok) {
         token = (await loginRes.json()).access_token;
         localStorage.setItem("token", token);
-        start().catch(() => {});
+        start();
       }
     } else {
       const err = await res.json();
@@ -376,12 +332,9 @@ async function start() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   
-  await maybeShowTutorial(); // <--- Add this exact line
+  await maybeShowTutorial();
 
   const res = await api("/sources");
-  // ... rest of start()
-}
-
   const sources = (await res.json()).filter((s) => s.status === "ready");
   const select = $("sourceSelect");
   select.replaceChildren(el("option", { value: "", text: "All my sources" }));
@@ -738,15 +691,9 @@ $("redeemBtn").addEventListener("click", async () => {
     await loadReadiness();
   } catch (e) { $("uploadMsg").textContent = e.message; }
 });
-$("logoutBtn").addEventListener("click", (e) => {
-  e.preventDefault();
-  localStorage.removeItem("token");
-  window.location.reload();
-});
 
 if (token) start().catch(() => {});
 else showLogin("");
-</script>
 </script>
 </body>
 </html>
