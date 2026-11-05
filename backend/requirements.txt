@@ -10,3 +10,4 @@ python-pptx
 python-docx
 pytesseract
 psycopg[binary]
+google-generativeai

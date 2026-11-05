@@ -1,3 +1,4 @@
+from .ai_ocr import read_labels_with_ai
 from .trust import build_vocabulary, accepted_variants
 import re
 import shutil
@@ -179,7 +180,7 @@ def read_labels(image: Image.Image) -> list[dict]:
 
 def ocr_page_regions(db, page: PageRender) -> int:
     image = Image.open(page.file_path).convert("RGB")
-    found = read_labels(image)
+    found = read_labels_with_ai(page.file_path)
 
 
     vocabulary = build_vocabulary(db, page.source_id)
