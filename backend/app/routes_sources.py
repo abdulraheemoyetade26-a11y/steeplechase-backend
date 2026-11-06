@@ -150,10 +150,22 @@ def get_chunks(source_id: int, db: Session = Depends(get_db), user: User = Depen
 @router.delete("/{source_id}")
 def delete_source(source_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     source = get_own_source(db, source_id, user)
-    Path(source.stored_path).unlink(missing_ok=True)
-    base = Path(settings.upload_dir) / str(source.user_id)
-    for folder in ("images", "pages", "converted"):
-        shutil.rmtree(base / folder / str(source.id), ignore_errors=True)
+    
+    # Try to delete the file, but don't crash if it's already gone
+    try:
+        Path(source.stored_path).unlink(missing_ok=True)
+    except Exception:
+        pass
+        
+    # Try to delete the image folders, but don't crash
+    try:
+        import shutil
+        shutil.rmtree(Path(settings.upload_dir) / str(source.user_id) / "images" / str(source.id), ignore_errors=True)
+        shutil.rmtree(Path(settings.upload_dir) / str(source.user_id) / "pages" / str(source.id), ignore_errors=True)
+        shutil.rmtree(Path(settings.upload_dir) / str(source.user_id) / "converted" / str(source.id), ignore_errors=True)
+    except Exception:
+        pass
+        
     db.delete(source)
     db.commit()
     return {"deleted": source_id}
