@@ -625,8 +625,20 @@ async function showStation(station) {
   run.number = station.number; run.submitting = false;
 
   let info;
-  try { info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start"); }
-  catch (e) { $("runMsg").textContent = e.message; return; }
+  try { 
+    info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start"); 
+  }
+  catch (e) { 
+    // If we get a 409, it means the station is already active. Let's just get the details.
+    if (e.message.includes("already active") || e.message.includes("Conflict")) {
+      try { info = await call("GET", "/practice/sessions/" + run.session.id + "/stations/" + station.number); } 
+      catch (e2) { $("runMsg").textContent = e2.message; return; }
+    } else {
+      $("runMsg").textContent = e.message; 
+      return; 
+    }
+  }
+  
   const imageRes = await api("/practice/sessions/" + run.session.id + "/stations/" + station.number + "/image");
   if (imageRes.ok) $("runImg").src = URL.createObjectURL(await imageRes.blob());
 
