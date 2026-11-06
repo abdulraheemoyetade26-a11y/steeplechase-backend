@@ -1,52 +1,37 @@
 import os
 import json
-import google.generativeai as genai
+import fitz
 from PIL import Image
+import pytesseract
+from pytesseract import Output
 from .config import settings
 
-genai.configure(api_key=settings.gemini_api_key)
-
 def read_labels_with_ai(image_path: str) -> list[dict]:
-    img = Image.open(image_path)
-    
-    prompt = """
-    You are a medical OCR assistant. 
-    Look at this lecture slide. 
-    
-    Ignore the main title at the top. Ignore the bullet points and paragraphs.
-    
-    Your ONLY job is to find the small text labels that are next to a diagram, illustration, or picture. These labels usually have a straight line or arrow pointing to a specific part of the anatomy.
-    
-    Return ONLY the text labels that are physically attached to the drawing. 
-    
-    Return ONLY JSON: {"items":[{"text": "...", "xmin": 0.0, "ymin": 0.0, "xmax": 1.0, "ymax": 1.0}]}
-    
-    If there are no diagrams or labels on the page, return {"items": []}.
-    """
-
-    
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    response = model.generate_content([prompt, img])
-    
+    # We use Tesseract for local, fast, blind text extraction
     try:
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:-3]
+        img = Image.open(image_path)
+        # Upscale for better accuracy on small text
+        img = img.resize((img.width * 2, img.height * 2), Image.Resampling.LANCZOS)
         
-        data = json.loads(text)
+        data = pytesseract.image_to_data(img, output_type=Output.DICT)
         
         labels = []
-        for item in data.get("items", []):
+        for i in range(len(data["text"])):
+            text = data["text"][i].strip()
+            if not text: continue
+            
+            # Tesseract gives coordinates in pixels, convert to 0.0-1.0
+            x0 = data["left"][i] / img.width
+            y0 = data["top"][i] / img.height
+            x1 = (data["left"][i] + data["width"][i]) / img.width
+            y1 = (data["top"][i] + data["height"][i]) / img.height
+            
             labels.append({
-                "text": item.get("text", ""),
-                "x0": float(item.get("xmin", 0)),
-                "y0": float(item.get("ymin", 0)),
-                "x1": float(item.get("xmax", 0)),
-                "y1": float(item.get("ymax", 0)),
+                "text": text,
+                "x0": x0, "y0": y0, "x1": x1, "y1": y1,
                 "confidence": 100.0
             })
         return labels
     except Exception as e:
-        print(f"AI OCR failed: {e}")
-        print(response.text)
+        print(f"Tesseract failed: {e}")
         return []

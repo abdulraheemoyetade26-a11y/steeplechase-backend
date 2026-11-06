@@ -8,55 +8,36 @@ class OcrUnavailable(Exception):
 
 MIN_CONF_AUTO = 70.0
 
-def get_pdf_text_boxes(pdf_path, page_number):
-    """Extracts all words and their coordinates from the PDF text layer."""
-    boxes = []
+def get_pdf_heading_texts(pdf_path, page_number):
+    """Extracts only the LARGE text (headings) from the PDF."""
+    headings = set()
     try:
         with fitz.open(pdf_path) as doc:
-            if page_number > len(doc):
-                return boxes
+            if page_number > len(doc): return headings
             page = doc[page_number - 1]
-            words = page.get_text("words")
-            for w in words:
-                x0, y0, x1, y1, text, *_ = w
-                boxes.append({
-                    "text": text.lower().strip(),
-                    "x0": x0 / page.rect.width,
-                    "y0": y0 / page.rect.height,
-                    "x1": x1 / page.rect.width,
-                    "y1": y1 / page.rect.height
-                })
+            blocks = page.get_text("dict")["blocks"]
+            
+            for b in blocks:
+                if b["type"] != 0: continue # Skip images
+                for line in b["lines"]:
+                    for span in line["spans"]:
+                        # If the font size is large (e.g., > 14), it's a heading
+                        if span["size"] > 14:
+                            headings.add(span["text"].lower().strip())
     except Exception as e:
         print(f"Could not read PDF text layer: {e}")
-    return boxes
-
-def is_heading_or_text(label, pdf_boxes):
-    """Checks if the label overlaps with existing text in the PDF."""
-    if not pdf_boxes:
-        return False
-        
-    label_text = label["text"].lower().strip()
-    
-    for box in pdf_boxes:
-        # If the text is exactly the same or contains each other
-        if label_text in box["text"] or box["text"] in label_text:
-            # Check if the coordinates overlap significantly
-            # If they overlap, it's a heading or body text.
-            if (label["x0"] < box["x1"] and label["x1"] > box["x0"] and 
-                label["y0"] < box["y1"] and label["y1"] > box["y0"]):
-                return True
-    return False
+    return headings
 
 def ocr_page_regions(db, page: PageRender) -> int:
     from .models import Source
     source = db.get(Source, page.source_id)
-    if not source:
-        return 0
-    # 1. Get everything Gemini sees on the image
+    if not source: return 0
+    
+    # 1. Tesseract finds EVERY word on the image
     found = read_labels_with_ai(page.file_path)
     
-    # 2. Get every word from the PDF text layer
-    pdf_boxes = get_pdf_text_boxes(page.stored_path, page.page_number)
+    # 2. Get the headings from the PDF
+    pdf_headings = get_pdf_heading_texts(source.stored_path, page.page_number)
     
     # 3. Clear old labels
     db.execute(delete(LabelRegion).where(LabelRegion.page_id == page.id))
@@ -65,26 +46,31 @@ def ocr_page_regions(db, page: PageRender) -> int:
     for item in found:
         text = item["text"].strip()
         
-        # Filter 1: Too long (likely a sentence)
-        if len(text.split()) > 6:
+        # Filter 1: Too long
+        if len(text.split()) > 6 or len(text) > 40:
             continue
             
-        # Filter 2: Junk (single letters, numbers)
+        # Filter 2: Junk
         if len(text) < 3 or text.isdigit():
             continue
             
-        # Filter 3: The Magic Subtraction
-        # Filter 3: The Magic Subtraction
-        if is_heading_or_text(item, pdf_boxes):
+        # Filter 3: Is it a heading from the PDF?
+        is_heading = False
+        for h in pdf_headings:
+            if text.lower() in h or h in text.lower():
+                is_heading = True
+                break
+                
+        if is_heading:
             db.add(LabelRegion(
                 page_id=page.id, user_id=page.user_id,
                 x0=item["x0"], y0=item["y0"], x1=item["x1"], y1=item["y1"],
                 text=text, origin="ocr", status="rejected",
-                confidence=100.0, reject_reason="pdf_text"
+                confidence=100.0, reject_reason="pdf_heading"
             ))
             continue
             
-        # If it survives all filters, it's a true diagram label!
+        # If it survives, keep it!
         db.add(
             LabelRegion(
                 page_id=page.id, user_id=page.user_id,
