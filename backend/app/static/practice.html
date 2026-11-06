@@ -570,23 +570,14 @@ async function begin() {
   };
   if ($("sourceSelect").value) body.source_ids = [Number($("sourceSelect").value)];
   
-  $("startBtn").disabled = true;
-  $("startBtn").textContent = "Generating images...";
-  
   try { 
     run.session = await call("POST", "/practice/sessions", body); 
-    // NEW: Tell the server to generate all the images NOW
-    await call("POST", "/practice/sessions/" + run.session.id + "/prepare");
   }
   catch (e) { 
     $("setupMsg").textContent = e.message; 
-    $("startBtn").disabled = false;
-    $("startBtn").textContent = "Start practice";
     return; 
   }
   
-  $("startBtn").disabled = false;
-  $("startBtn").textContent = "Start practice";
   run.index = 0; $("runMsg").textContent = ""; next();
 }
 
