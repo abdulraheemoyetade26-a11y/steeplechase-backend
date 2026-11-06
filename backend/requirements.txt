@@ -11,3 +11,4 @@ python-docx
 pytesseract
 psycopg[binary]
 google-generativeai
+supabase
