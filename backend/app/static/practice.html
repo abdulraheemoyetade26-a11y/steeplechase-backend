@@ -111,7 +111,9 @@
       <div id="processing" class="banner hidden"></div>
       <label>Source
         <select id="sourceSelect"></select>
+
       </label>
+<button id="deleteSourceBtn" style="margin-top: 10px; background: var(--bad); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer;">Delete selected source</button>
       <div id="banner" class="banner hidden"></div>
       <div class="options">
         <div class="card">
@@ -822,6 +824,19 @@ document.body.addEventListener("click", (e) => {
     localStorage.removeItem("token");
     $("feedbackBtn").classList.add("hidden"); // Hide button before reload
     window.location.reload();
+  }
+});
+$("deleteSourceBtn").addEventListener("click", async () => {
+  const sid = $("sourceSelect").value;
+  if (!sid) { alert("Select a source first."); return; }
+  if (!confirm("Are you sure you want to delete this source and all its labels? This cannot be undone.")) return;
+  
+  try {
+    await call("DELETE", "/sources/" + sid);
+    alert("Source deleted.");
+    await start(); // Reload the sources list
+  } catch (e) {
+    alert(e.message);
   }
 });
 </script>
