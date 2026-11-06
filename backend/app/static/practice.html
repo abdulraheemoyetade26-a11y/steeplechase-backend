@@ -1,84 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="stylesheet" href="/static/thaw.css">
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+  <title>Thaw</title>
+  <link rel="stylesheet" href="/static/thaw.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <script>
+    const currentTheme = localStorage.getItem("thaw-theme") || "dark";
+    document.documentElement.setAttribute("data-theme", currentTheme);
+  </script>
 </head>
 <body>
+
 <!-- Tutorial Overlay -->
-<div id="tutorial" class="tut hidden" role="dialog" aria-modal="true">
-  <div class="tut-card">
+<div id="tutorial" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
     <p id="tutText" style="font-size: 1.2rem; line-height: 1.5; margin-bottom: 20px;"></p>
-    <div class="tut-row">
-      <button type="button" data-tut="skip" style="background: #d1d5db; color: #111; border: none; border-radius: 8px; cursor: pointer;">Skip</button>
-      <button type="button" data-tut="next" id="tutNext" style="background: #1f6feb; color: white; border: none; border-radius: 8px; cursor: pointer;">Next</button>
+    <div class="row" style="justify-content: space-between; margin-top: 16px;">
+      <button type="button" data-tut="skip" style="background: transparent; color: var(--muted); border: none;">Skip</button>
+      <button type="button" data-tut="next" id="tutNext" class="primary">Next</button>
     </div>
   </div>
 </div>
-<section id="login" class="hidden">
-  <h2 id="authTitle">Thaw</h2>
+
+<!-- Login Screen -->
+<section id="login" class="hidden" style="max-width: 400px; margin: 60px auto; padding: 20px;">
+  <h2 id="authTitle" style="text-align: center;">Thaw</h2>
   <input id="email" type="email" name="email" placeholder="Email" autocomplete="username">
   <input id="password" type="password" name="password" placeholder="Password" autocomplete="current-password">
-  <p><button class="primary" id="authBtn" style="width: 100%;">Log in</button></p>
-  <p style="text-align: center;">
-    <a href="#" id="toggleAuth" style="color: #58a6ff; text-decoration: underline;">Don't have an account? Sign up</a>
+  <button class="primary" id="authBtn" style="width: 100%; margin-top: 10px;">Log in</button>
+  <p style="text-align: center; margin-top: 20px;">
+    <a href="#" id="toggleAuth">Don't have an account? Sign up</a>
   </p>
-  <div class="msg" id="loginMsg"></div>
+  <div class="msg" id="loginMsg" style="text-align: center;"></div>
 </section>
 
+<!-- Main App -->
 <section id="app" class="hidden">
-<header class="topbar">
-  <a class="brand" href="/practice-test" aria-label="Thaw home">
-    <svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true">
-      <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#3CC7E8"/><stop offset="1" stop-color="#0E7C9B"/></linearGradient></defs>
-      <rect width="48" height="48" rx="12" fill="url(#tg)"/>
-      <path d="M24 9C24 9 14 21 14 28a10 10 0 0 0 20 0C34 21 24 9 24 9Z" fill="#fff"/>
-      <path d="M24 21v15M16.5 28.5h15" stroke="#0E7C9B" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-    <span>Thaw</span>
-  </a>
-  <div style="margin-left: auto; display: flex; gap: 10px;">
-    <a href="#" id="settingsBtn" class="hint" style="text-decoration: none;">Settings</a>
-    <a href="#" id="logoutBtn" style="color: var(--bad); text-decoration: none; font-weight: bold;">Log out</a>
-  </div>
-</header>
-  <main>
+  <header class="topbar">
+    <a class="brand" href="/practice-test">
+      <svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true">
+        <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3CC7E8"/><stop offset="1" stop-color="#0E7C9B"/></linearGradient></defs>
+        <rect width="48" height="48" rx="12" fill="url(#tg)"/>
+        <path d="M24 9C24 9 14 21 14 28a10 10 0 0 0 20 0C34 21 24 9 24 9Z" fill="#fff"/>
+        <path d="M24 21v15M16.5 28.5h15" stroke="#0E7C9B" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span>Thaw</span>
+    </a>
+    
+    <div style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
+      <div class="theme-switch" id="themeToggle">
+        <span id="themeIcon">🌙</span>
+      </div>
+      <a href="#" id="settingsBtn" class="hint" style="text-decoration: none; font-weight: 600;">Settings</a>
+      <a href="#" id="logoutBtn" style="color: var(--bad); text-decoration: none; font-weight: 600;">Log out</a>
+    </div>
+  </header>
 
+  <main>
     <section id="choose">
       <h2>How do you want to prepare?</h2>
-      <div id="planStatus" class="hint" style="margin-bottom: 10px;"></div>
+      <div id="planStatus" class="hint" style="margin-bottom: 16px;"></div>
+      
       <div class="card">
         <strong>Add a lecture file</strong>
         <p class="hint">PDF or PowerPoint (.pptx). Processing starts automatically, and you can use what is ready while it continues.</p>
         <input type="file" id="fileInput" accept=".pdf,.pptx">
-        <div class="row"><button id="uploadBtn">Upload and process</button></div>
+        <div class="row"><button id="uploadBtn" class="primary">Upload and process</button></div>
         <div class="msg" id="uploadMsg"></div>
-        <div class="row" style="margin-top: 10px;">
-          <input type="text" id="redeemCode" placeholder="Enter activation code" style="width: 200px;">
+        
+        <div class="row" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+          <input type="text" id="redeemCode" placeholder="Enter activation code" style="flex: 1; margin-bottom: 0;">
           <button id="redeemBtn">Redeem</button>
         </div>
       </div>
-      <div id="processing" class="banner hidden"></div>
-      <label>Source
-        <select id="sourceSelect"></select>
 
-      </label>
-<button id="deleteSourceBtn" style="margin-top: 10px; background: var(--bad); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer;">Delete selected source</button>
+      <div id="processing" class="banner hidden"></div>
+      
+      <div class="card">
+        <label>Source</label>
+        <select id="sourceSelect"></select>
+        <button id="deleteSourceBtn" class="danger" style="margin-top: 10px; width: 100%;">Delete selected source</button>
+      </div>
+
       <div id="banner" class="banner hidden"></div>
-      <div class="options">
-        <div class="card">
+      
+      <div class="row" style="align-items: stretch;">
+        <div class="card" style="flex: 1; min-width: 300px;">
           <h3>Option A: Start now</h3>
-          <p id="optA"></p>
-          <button class="primary" id="goSetup">Set up practice</button>
+          <p id="optA" class="hint"></p>
+          <button class="primary" id="goSetup" style="width: 100%;">Set up practice</button>
         </div>
-        <div class="card">
-          <h3>Option B: Review first, then practice</h3>
-          <p id="optB"></p>
-          <label>Minutes you can spare <input id="minutes" type="number" min="1" max="120" value="5"></label>
+        
+        <div class="card" style="flex: 1; min-width: 300px;">
+          <h3>Option B: Review first</h3>
+          <p id="optB" class="hint"></p>
+          <label>Minutes you can spare</label>
+          <input id="minutes" type="number" min="1" max="120" value="5">
           <p id="optBEstimate" class="hint"></p>
-          <button id="goReview">Start timed review</button>
+          <button id="goReview" style="width: 100%;">Start timed review</button>
         </div>
       </div>
       <div class="msg" id="chooseMsg"></div>
@@ -86,77 +107,98 @@
 
     <section id="review" class="hidden">
       <h2>Check the held-back labels</h2>
-      <div id="reviewTimer"></div>
-      <p class="hint">Does the text below match the label inside the blue outline? Press Enter if it does. If it is slightly wrong, correct the text first, then press Enter. Press Shift and Enter if it is not a label. Labels you confirm become fully trusted, so your answers on them always count.</p>
-      <p id="reviewCounts"></p>
-      <div class="imgbox"><img id="reviewImg" alt="Label to check"></div>
+      <div id="reviewTimer" style="font-size: 2rem; font-weight: bold; text-align: center; margin: 10px 0;"></div>
+      <p class="hint">Does the text below match the label inside the blue outline? Press Enter if it does. If it is slightly wrong, correct the text first, then press Enter. Press Shift and Enter if it is not a label.</p>
+      <p id="reviewCounts" class="hint"></p>
+      <div class="imgbox" style="text-align: center; background: var(--surface-2); padding: 10px; border-radius: 12px;"><img id="reviewImg" alt="Label to check" style="max-width: 100%; max-height: 50vh;"></div>
       <p id="reviewConf" class="hint"></p>
       <input id="reviewInput" type="text" autocomplete="off" placeholder="Label text">
-      <div class="row">
-        <button class="primary" id="confirmBtn" style="padding: 15px; font-size: 18px;">✅ Looks right</button>
-        <button id="notLabelBtn" style="padding: 15px; font-size: 18px; background: #dc2626; color: white;">❌ Not a label</button>
-        <button id="undoBtn">Undo last</button>
-        <button id="stopReviewBtn">Stop review</button>
+      <div class="row" style="margin-top: 16px;">
+        <button class="primary" id="confirmBtn" style="flex: 1; padding: 15px; font-size: 18px;">✅ Looks right</button>
+        <button id="notLabelBtn" class="danger" style="flex: 1; padding: 15px; font-size: 18px;">❌ Not a label</button>
+      </div>
+      <div class="row" style="margin-top: 10px;">
+        <button id="undoBtn" style="flex: 1;">Undo last</button>
+        <button id="stopReviewBtn" style="flex: 1; background: transparent; border: 1px solid var(--border);">Stop review</button>
       </div>
       <div class="msg" id="reviewMsg"></div>
     </section>
 
     <section id="setup" class="hidden">
       <h2>Set up your practice</h2>
-      <label>Number of stations <input id="stations" type="number" min="1" max="60" value="10"></label>
-      <label>Seconds per station <input id="seconds" type="number" min="10" max="600" value="60"></label>
-      <label>Labels hidden per station <input id="labels" type="number" min="1" max="10" value="1"></label>
-      <label>Rest after every N stations (0 = no rest) <input id="restEvery" type="number" min="0" max="20" value="0"></label>
-      <label>Rest seconds <input id="restSeconds" type="number" min="5" max="300" value="30"></label>
+      <div class="card">
+        <label>Number of stations</label>
+        <input id="stations" type="number" min="1" max="60" value="10">
+        <label>Seconds per station</label>
+        <input id="seconds" type="number" min="10" max="600" value="60">
+        <label>Labels hidden per station</label>
+        <input id="labels" type="number" min="1" max="10" value="1">
+        <label>Rest after every N stations (0 = no rest)</label>
+        <input id="restEvery" type="number" min="0" max="20" value="0">
+        <label>Rest seconds</label>
+        <input id="restSeconds" type="number" min="5" max="300" value="30">
+      </div>
       <div class="row">
-        <button class="primary" id="startBtn">Start practice</button>
-        <button id="backBtn">Back</button>
+        <button class="primary" id="startBtn" style="flex: 1;">Start practice</button>
+        <button id="backBtn" style="flex: 1;">Back</button>
       </div>
       <div class="msg" id="setupMsg"></div>
     </section>
 
     <section id="run" class="hidden">
-      <h2 id="runTitle"></h2>
+      <h2 id="runTitle" style="text-align: center;"></h2>
       <div id="stationBox">
-        <div id="timer"></div>
-        <div class="imgbox"><img id="runImg" alt="Station"></div>
-        <div id="inputs"></div>
-        <p><button class="primary" id="submitBtn">Submit answers</button></p>
+        <div id="timer" style="font-size: 2rem; font-weight: bold; text-align: center; margin: 10px 0;"></div>
+        <div class="imgbox" style="text-align: center; background: var(--surface-2); padding: 10px; border-radius: 12px;"><img id="runImg" alt="Station" style="max-width: 100%; max-height: 60vh;"></div>
+        <div id="inputs" style="margin-top: 16px;"></div>
+        <p><button class="primary" id="submitBtn" style="width: 100%;">Submit answers</button></p>
       </div>
-      <div id="restBox" class="hidden">
-        <p>Rest station. Take a breath.</p>
-        <div id="restTimer"></div>
-        <button id="skipRest">Skip rest</button>
+      <div id="restBox" class="hidden" style="text-align: center; padding: 40px 20px;">
+        <p style="font-size: 1.2rem;">Rest station. Take a breath.</p>
+        <div id="restTimer" style="font-size: 3rem; font-weight: bold; margin: 20px 0;"></div>
+        <button id="skipRest" class="primary">Skip rest</button>
       </div>
       <div class="msg" id="runMsg"></div>
-      <p><button id="endBtn">End session now</button></p>
+      <p style="text-align: center; margin-top: 30px;"><button id="endBtn" style="background: transparent; color: var(--bad); border: none;">End session now</button></p>
     </section>
 
     <section id="results" class="hidden"></section>
   </main>
 </section>
-<button class="hidden" id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px; background: var(--accent); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">💬</button>
+
+<!-- Floating Feedback Button -->
+<button class="hidden" id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 56px; height: 56px; background: var(--primary); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">💬</button>
+
 <!-- Settings Modal -->
-<div id="settingsModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1002; padding: 20px;">
-  <div style="background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; margin: 40px auto;">
+<div id="settingsModal" class="modal-backdrop hidden">
+  <div class="modal-content">
     <h3 style="margin-top: 0;">Settings</h3>
     <p class="hint">Manage your account and data.</p>
-    
     <div style="margin-top: 20px;">
-      <a href="/privacy" target="_blank" style="color: var(--accent); display: block; margin-bottom: 10px;">Privacy Policy</a>
-      <a href="/terms" target="_blank" style="color: var(--accent); display: block; margin-bottom: 20px;">Terms of Service</a>
+      <a href="/privacy" target="_blank" style="display: block; margin-bottom: 12px;">Privacy Policy</a>
+      <a href="/terms" target="_blank" style="display: block; margin-bottom: 20px;">Terms of Service</a>
     </div>
-
-    <button id="deleteAccountBtn" style="background: var(--bad); color: white; width: 100%; padding: 10px; border-radius: 8px; border: none; cursor: pointer;">Delete My Account</button>
-    <p class="hint" style="margin-top: 5px;">This will permanently delete your account and all uploaded files.</p>
-
-    <button id="closeSettings" style="margin-top: 20px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer;">Close</button>
+    <button id="deleteAccountBtn" class="danger" style="width: 100%;">Delete My Account</button>
+    <p class="hint" style="margin-top: 5px; text-align: center;">This will permanently delete your account and all uploaded files.</p>
+    <div style="text-align: center; margin-top: 20px;">
+      <button id="closeSettings" style="background: transparent; border: none; color: var(--muted);">Close</button>
+    </div>
   </div>
 </div>
 
 <!-- Feedback Modal -->
-<div id="feedbackModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1001; padding: 20px;">
-
+<div id="feedbackModal" class="modal-backdrop hidden">
+  <div class="modal-content">
+    <h3 style="margin-top: 0;">Report a problem</h3>
+    <p class="hint">Tell us what broke, or what is confusing.</p>
+    <textarea id="feedbackText" rows="4" placeholder="Type here..."></textarea>
+    <div class="row" style="justify-content: flex-end; margin-top: 16px;">
+      <button id="feedbackCancel" style="background: transparent; border: none; color: var(--muted);">Cancel</button>
+      <button id="feedbackSubmit" class="primary">Send</button>
+    </div>
+    <div id="feedbackMsg" class="msg"></div>
+  </div>
+</div>
 
 <script>
 let token = localStorage.getItem("token") || "";
@@ -165,6 +207,19 @@ const run = { session: null, index: 0, timer: null, submitting: false, number: 0
 const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active: false, busy: false, unlocked: 0, removed: 0, current: null };
 const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
 let isLoginMode = true;
+
+// --- THEME TOGGLE ---
+const themeToggle = $("themeToggle");
+const themeIcon = $("themeIcon");
+let isDark = document.documentElement.getAttribute("data-theme") === "dark";
+themeIcon.textContent = isDark ? "🌙" : "☀️";
+
+themeToggle.addEventListener("click", () => {
+  isDark = !isDark;
+  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  localStorage.setItem("thaw-theme", isDark ? "dark" : "light");
+  themeIcon.textContent = isDark ? "🌙" : "☀️";
+});
 
 // --- TUTORIAL LOGIC ---
 const TUT_STEPS = [
@@ -206,7 +261,6 @@ async function maybeShowTutorial() {
     if (me.tutorial_seen === false || me.tutorial_seen === 0) tutOpen();
   } catch (e) {}
 }
-// ----------------------
 
 function el(tag, attrs = {}, ...kids) {
   const node = document.createElement(tag);
@@ -226,7 +280,6 @@ function showLogin(message) {
   $("app").classList.add("hidden");
   $("login").classList.remove("hidden");
   $("feedbackBtn").classList.add("hidden");
-
   $("loginMsg").textContent = message || "";
 }
 
@@ -392,11 +445,10 @@ function showProcessing(data) {
                        : p.pages_done === p.pages_total ? "Ready to practise!" 
                        : `Reading page ${p.pages_done} of ${p.pages_total}. You can start practising with what is ready.`;
       const text = s.filename + ": " + statusText;
-      const btn = el("button", { text: "Cancel", style: "margin-left: 10px; padding: 2px 8px;" });
+      const btn = el("button", { text: "Cancel", style: "margin-left: 10px; padding: 4px 12px; min-height: 30px; font-size: 14px; background: transparent; border: 1px solid var(--border);" });
       btn.addEventListener("click", () => cancelJob(p.id));
-      box.appendChild(el("div", { text: text }, btn));
+      box.appendChild(el("div", { style: "margin-bottom: 8px;" }, text, btn));
     });
-    box.appendChild(el("div", { text: "You can start practicing with what is ready.", style: "margin-top: 8px; font-size: 0.9em;" }));
   }
   
   failed.forEach((s) => {
@@ -634,27 +686,27 @@ function renderResults(r) {
   show("results");
   const box = $("results");
   box.replaceChildren(
-    el("h2", { text: "Score: " + r.earned + " / " + r.possible + " (" + r.percent + "%)" }),
-    el("p", { text: "If your reports are accepted: " + r.score_if_reports_accepted + " / " + r.possible_if_reports_accepted }),
-    el("p", { class: "hint", text: "Items marked \"Not scored\" or \"Reported\" use an answer key the app could not fully verify, so a mismatch never counts against you." })
+    el("h2", { text: "Score: " + r.earned + " / " + r.possible + " (" + r.percent + "%)", style: "text-align: center;" }),
+    el("p", { text: "If your reports are accepted: " + r.score_if_reports_accepted + " / " + r.possible_if_reports_accepted, style: "text-align: center; color: var(--muted);" }),
+    el("p", { class: "hint", text: "Items marked \"Not scored\" or \"Reported\" use an answer key the app could not fully verify, so a mismatch never counts against you.", style: "text-align: center;" })
   );
   r.stations.forEach((st, index) => {
-    const img = el("img", { alt: "Answer reveal" });
+    const img = el("img", { alt: "Answer reveal", style: "max-width: 100%; border-radius: 12px; border: 1px solid var(--border);" });
     img.dataset.url = st.reveal_url;
     observer.observe(img);
     const rows = st.items.map((item) => {
-      const flag = el("button", { text: "Report wrong label" });
+      const flag = el("button", { text: "Report wrong label", style: "font-size: 12px; padding: 4px 8px; min-height: 30px;" });
       flag.addEventListener("click", async () => {
         try { await call("POST", "/practice/flags", { region_id: item.region_id }); flag.textContent = "Reported"; flag.disabled = true; }
         catch (e) { flag.textContent = e.message; }
       });
       const line = "#" + item.number + "  correct: " + item.correct + "  |  you wrote: " + (item.student || "(nothing)") + "  |  " + VERDICT[item.outcome];
-      return el("div", { class: "item " + item.outcome }, el("div", { text: line }), flag);
+      return el("div", { class: "item " + item.outcome }, el("div", { text: line, style: "font-size: 14px;" }), flag);
     });
     const title = "Station " + (index + 1) + ": " + (st.source || "deleted source") + ", page " + (st.page_number || "?") + ", " + st.earned + " / " + st.possible;
-    box.appendChild(el("div", { class: "card" }, el("strong", { text: title }), el("div", { class: "imgbox" }, img), ...rows));
+    box.appendChild(el("div", { class: "card" }, el("strong", { text: title }), el("div", { style: "margin: 10px 0;" }, img), ...rows));
   });
-  const again = el("button", { class: "primary", text: "Back to start" });
+  const again = el("button", { class: "primary", text: "Back to start", style: "width: 100%; margin-top: 20px;" });
   again.addEventListener("click", async () => { show("choose"); await loadReadiness(); });
   box.appendChild(again);
 }
@@ -691,96 +743,6 @@ $("redeemBtn").addEventListener("click", async () => {
   } catch (e) { $("uploadMsg").textContent = e.message; }
 });
 
-if (token) start().catch(() => {});
-else showLogin("");
-// Feedback Logic (Event Delegation)
-document.body.addEventListener("click", (e) => {
-  if (e.target.closest("#feedbackBtn")) {
-    const modal = document.getElementById("feedbackModal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.style.display = "flex"; // Force display just in case
-      document.getElementById("feedbackText").focus();
-    }
-  }
-  
-  if (e.target.closest("#feedbackCancel")) {
-    const modal = document.getElementById("feedbackModal");
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.style.display = "none";
-      document.getElementById("feedbackText").value = "";
-      document.getElementById("feedbackMsg").textContent = "";
-    }
-  }
-  
-  if (e.target.closest("#feedbackSubmit")) {
-    const btn = document.getElementById("feedbackSubmit");
-    const text = document.getElementById("feedbackText").value.trim();
-    if (!text) return;
-    
-    btn.disabled = true;
-    document.getElementById("feedbackMsg").textContent = "Sending...";
-    
-    call("POST", "/feedback", {
-      message: text,
-      page: window.location.pathname,
-      user_agent: navigator.userAgent
-    }).then(() => {
-      document.getElementById("feedbackMsg").textContent = "Sent! Thank you.";
-      document.getElementById("feedbackMsg").style.color = "var(--good)";
-      setTimeout(() => {
-        document.getElementById("feedbackModal").classList.add("hidden");
-        document.getElementById("feedbackModal").style.display = "none";
-        document.getElementById("feedbackText").value = "";
-        document.getElementById("feedbackMsg").textContent = "";
-        btn.disabled = false;
-      }, 2000);
-    }).catch((err) => {
-      document.getElementById("feedbackMsg").textContent = err.message;
-      btn.disabled = false;
-    });
-  }
-});
-// Settings Logic
-document.body.addEventListener("click", async (e) => {
-  if (e.target.closest("#settingsBtn")) {
-    document.getElementById("settingsModal").classList.remove("hidden");
-    document.getElementById("settingsModal").style.display = "flex";
-  }
-  
-  if (e.target.closest("#closeSettings")) {
-    document.getElementById("settingsModal").classList.add("hidden");
-    document.getElementById("settingsModal").style.display = "none";
-  }
-  
-  if (e.target.closest("#deleteAccountBtn")) {
-    if (!confirm("Are you sure? This will permanently delete your account, uploaded PDFs, and scores. This cannot be undone.")) return;
-    
-    const btn = document.getElementById("deleteAccountBtn");
-    btn.disabled = true;
-    btn.textContent = "Deleting...";
-    
-    try {
-      await call("DELETE", "/auth/me");
-      localStorage.removeItem("token");
-      window.location.reload();
-    } catch (err) {
-      alert("Error deleting account: " + err.message);
-      btn.disabled = false;
-      btn.textContent = "Delete My Account";
-    }
-  }
-});
-// Logout logic
-document.body.addEventListener("click", (e) => {
-  if (e.target.closest("#logoutBtn")) {
-    e.preventDefault();
-    localStorage.removeItem("token");
-    $("feedbackBtn").classList.add("hidden"); // Hide button before reload
-    window.location.reload();
-  }
-});
 $("deleteSourceBtn").addEventListener("click", async () => {
   const sid = $("sourceSelect").value;
   if (!sid) { alert("Select a source first."); return; }
@@ -789,23 +751,41 @@ $("deleteSourceBtn").addEventListener("click", async () => {
   try {
     await call("DELETE", "/sources/" + sid);
     alert("Source deleted.");
-    await start(); // Reload the sources list
+    await start();
   } catch (e) {
     alert(e.message);
   }
 });
+
+// Feedback & Settings Event Delegation
+document.body.addEventListener("click", async (e) => {
+  if (e.target.closest("#feedbackBtn")) { $("feedbackModal").classList.remove("hidden"); $("feedbackText").focus(); }
+  if (e.target.closest("#feedbackCancel")) { $("feedbackModal").classList.add("hidden"); $("feedbackText").value = ""; $("feedbackMsg").textContent = ""; }
+  if (e.target.closest("#feedbackSubmit")) {
+    const btn = $("feedbackSubmit"); const text = $("feedbackText").value.trim();
+    if (!text) return;
+    btn.disabled = true; $("feedbackMsg").textContent = "Sending...";
+    try {
+      await call("POST", "/feedback", { message: text, page: window.location.pathname, user_agent: navigator.userAgent });
+      $("feedbackMsg").textContent = "Sent! Thank you."; $("feedbackMsg").style.color = "var(--ok)";
+      setTimeout(() => { $("feedbackModal").classList.add("hidden"); $("feedbackText").value = ""; $("feedbackMsg").textContent = ""; btn.disabled = false; }, 2000);
+    } catch (err) { $("feedbackMsg").textContent = err.message; btn.disabled = false; }
+  }
+  if (e.target.closest("#settingsBtn")) { $("settingsModal").classList.remove("hidden"); }
+  if (e.target.closest("#closeSettings")) { $("settingsModal").classList.add("hidden"); }
+  if (e.target.closest("#deleteAccountBtn")) {
+    if (!confirm("Are you sure? This will permanently delete your account, uploaded PDFs, and scores. This cannot be undone.")) return;
+    const btn = $("deleteAccountBtn"); btn.disabled = true; btn.textContent = "Deleting...";
+    try { await call("DELETE", "/auth/me"); localStorage.removeItem("token"); window.location.reload(); }
+    catch (err) { alert("Error deleting account: " + err.message); btn.disabled = false; btn.textContent = "Delete My Account"; }
+  }
+  if (e.target.closest("#logoutBtn")) {
+    e.preventDefault(); localStorage.removeItem("token"); $("feedbackBtn").classList.add("hidden"); window.location.reload();
+  }
+});
+
+if (token) start().catch(() => {});
+else showLogin("");
 </script>
-<!-- Feedback Button -->
-  <div style="background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%;">
-    <h3 style="margin-top: 0;">Report a problem</h3>
-    <p class="hint" style="margin-bottom: 10px;">Tell us what broke, or what is confusing.</p>
-    <textarea id="feedbackText" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); margin-bottom: 10px;"></textarea>
-    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-      <button id="feedbackCancel" style="background: transparent; color: var(--fg); border: 1px solid var(--line); padding: 8px 16px; border-radius: 8px;">Cancel</button>
-      <button id="feedbackSubmit" class="primary" style="padding: 8px 16px; border-radius: 8px;">Send</button>
-    </div>
-    <div id="feedbackMsg" class="msg" style="text-align: right; margin-top: 5px;"></div>
-  </div>
-</div>
 </body>
 </html>
