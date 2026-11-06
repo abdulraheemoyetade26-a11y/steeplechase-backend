@@ -700,38 +700,53 @@ $("redeemBtn").addEventListener("click", async () => {
 
 if (token) start().catch(() => {});
 else showLogin("");
-// Feedback logic
-$("feedbackBtn").addEventListener("click", () => {
-  $("feedbackModal").classList.remove("hidden");
-  $("feedbackText").focus();
-});
-$("feedbackCancel").addEventListener("click", () => {
-  $("feedbackModal").classList.add("hidden");
-  $("feedbackText").value = "";
-  $("feedbackMsg").textContent = "";
-});
-$("feedbackSubmit").addEventListener("click", async () => {
-  const text = $("feedbackText").value.trim();
-  if (!text) return;
-  $("feedbackSubmit").disabled = true;
-  $("feedbackMsg").textContent = "Sending...";
-  try {
-    await call("POST", "/feedback", {
+// Feedback Logic (Event Delegation)
+document.body.addEventListener("click", (e) => {
+  if (e.target.closest("#feedbackBtn")) {
+    const modal = document.getElementById("feedbackModal");
+    if (modal) {
+      modal.classList.remove("hidden");
+      modal.style.display = "flex"; // Force display just in case
+      document.getElementById("feedbackText").focus();
+    }
+  }
+  
+  if (e.target.closest("#feedbackCancel")) {
+    const modal = document.getElementById("feedbackModal");
+    if (modal) {
+      modal.classList.add("hidden");
+      modal.style.display = "none";
+      document.getElementById("feedbackText").value = "";
+      document.getElementById("feedbackMsg").textContent = "";
+    }
+  }
+  
+  if (e.target.closest("#feedbackSubmit")) {
+    const btn = document.getElementById("feedbackSubmit");
+    const text = document.getElementById("feedbackText").value.trim();
+    if (!text) return;
+    
+    btn.disabled = true;
+    document.getElementById("feedbackMsg").textContent = "Sending...";
+    
+    call("POST", "/feedback", {
       message: text,
       page: window.location.pathname,
       user_agent: navigator.userAgent
+    }).then(() => {
+      document.getElementById("feedbackMsg").textContent = "Sent! Thank you.";
+      document.getElementById("feedbackMsg").style.color = "var(--good)";
+      setTimeout(() => {
+        document.getElementById("feedbackModal").classList.add("hidden");
+        document.getElementById("feedbackModal").style.display = "none";
+        document.getElementById("feedbackText").value = "";
+        document.getElementById("feedbackMsg").textContent = "";
+        btn.disabled = false;
+      }, 2000);
+    }).catch((err) => {
+      document.getElementById("feedbackMsg").textContent = err.message;
+      btn.disabled = false;
     });
-    $("feedbackMsg").textContent = "Sent! Thank you.";
-    $("feedbackMsg").style.color = "var(--good)";
-    setTimeout(() => {
-      $("feedbackModal").classList.add("hidden");
-      $("feedbackText").value = "";
-      $("feedbackMsg").textContent = "";
-      $("feedbackSubmit").disabled = false;
-    }, 2000);
-  } catch (e) {
-    $("feedbackMsg").textContent = e.message;
-    $("feedbackSubmit").disabled = false;
   }
 });
 </script>
