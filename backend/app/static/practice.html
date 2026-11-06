@@ -797,6 +797,14 @@ document.body.addEventListener("click", async (e) => {
     }
   }
 });
+// Logout logic
+document.body.addEventListener("click", (e) => {
+  if (e.target.closest("#logoutBtn")) {
+    e.preventDefault();
+    localStorage.removeItem("token");
+    window.location.reload();
+  }
+});
 </script>
 <!-- Feedback Button -->
   <div style="background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%;">
