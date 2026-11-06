@@ -3,14 +3,14 @@ import json
 import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
+from .storage import ensure_local
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from PIL import Image, ImageDraw
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.orm import Session
-
+from .config import settings
 from .database import get_db
 from .deps import get_current_user
 from .grading import grade_answer, outcome_points
@@ -377,6 +377,9 @@ def prepare_session(session_id: int, db: Session = Depends(get_db), user: User =
         
         # Generate ONE image at a time
         try:
+        if not ensure_local(page.file_path, settings.upload_dir):
+            print(f"Missing file for station {station.number}: {page.file_path}")
+            continue
             payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
             cache_file.write_bytes(payload)
         except Exception as e:
@@ -420,6 +423,8 @@ def station_image(
     ids = region_ids_of(station)
     by_id = load_regions(db, ids)
     regions = [by_id[i] for i in ids if i in by_id]
+    if not ensure_local(page.file_path, settings.upload_dir):
+        raise HTTPException(410, "The images for this deck are no longer stored. Please ask the admin to re-upload the deck.")
     payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
     
     # Save it to the cache folder for next time
@@ -633,7 +638,8 @@ def reveal_station(
     except ValueError:
         items = []
     by_id = load_regions(db, [i["region_id"] for i in items])
-
+    if not ensure_local(page.file_path, settings.upload_dir):
+        raise HTTPException(410, "The images for this deck are no longer stored.")
     img = Image.open(page.file_path).convert("RGB")
     width, height = img.size
     draw = ImageDraw.Draw(img)
