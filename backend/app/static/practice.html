@@ -1,66 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="apple-touch-icon" href="/static/icon-192.png">
-<link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1f6feb">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>Thaw</title>
-<link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1f6feb">
-<link rel="apple-touch-icon" href="/static/icon-192.png">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  }
-</script>
-<style>
-  :root { --bg:#ffffff; --fg:#1b1b1b; --card:#f3f4f6; --line:#d0d5dd; --accent:#1f6feb; --muted:#667085; --good:#16a34a; --bad:#dc2626; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#16181d; --fg:#e8e8e8; --card:#20242b; --line:#3a404a; --accent:#58a6ff; --muted:#98a2b3; }
-  }
-  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--fg); }
-  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-  main { padding:16px; max-width:900px; margin:0 auto; }
-  /* Mobile Practice Fixes */
-  #stationBox { display: flex; flex-direction: column; height: 80vh; height: 80dvh; }
-  .imgbox { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-  .imgbox img { max-height: 100%; max-width: 100%; object-fit: contain; touch-action: pinch-zoom; }
-  #inputs { margin-top: 10px; }
-  #inputs input { font-size: 16px; /* Prevents iPhone auto-zoom */ }
-  .hidden { display:none; }
-  label { display:block; margin:10px 0; }
-  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
-  input[type=text], input[type=password], input[type=email] { width:100%; box-sizing:border-box; margin-top:6px; }
-  input[type=number] { width:100px; margin-left:8px; }
-  button { cursor:pointer; }
-  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-  button:disabled { opacity:0.5; cursor:not-allowed; }
-  #login { max-width:360px; margin:60px auto; padding:0 16px; }
-  .msg { color:#d92d20; min-height:1.2em; margin:8px 0; }
-  .hint { color:var(--muted); font-size:0.92rem; }
-  .banner { background:#16a34a22; border:1px solid var(--good); border-radius:10px; padding:10px 12px; margin:12px 0; }
-  .options { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; }
-  #timer, #restTimer, #reviewTimer { font-size:2.2rem; font-weight:700; margin:8px 0; }
-  .imgbox { display:flex; justify-content:center; background:#0001; border-radius:8px; min-height:120px; }
-  .imgbox img { max-width:100%; max-height:70vh; object-fit:contain; }
-  #inputs input, #reviewInput { margin-top:8px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin:16px 0; }
-  .options .card { margin:0; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .item { padding:8px 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-  .item.exact, .item.close { border-left:4px solid var(--good); padding-left:8px; }
-  .item.wrong, .item.blank { border-left:4px solid var(--bad); padding-left:8px; }
-  .item.unscored, .item.flagged { border-left:4px solid var(--muted); padding-left:8px; }
-  .item.unscored, .item.flagged { border-left:4px solid var(--muted); padding-left:8px; }
-.tut { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.8);
-       display: flex; align-items: center; justify-content: center; padding: 16px; }
-.tut.hidden { display: none; }
-.tut-card { background: var(--card); color: var(--fg); border-radius: 12px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-.tut-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
-.tut-row button { min-height: 44px; flex: 1; font-size: 16px; }
-</style>
+<link rel="stylesheet" href="/static/thaw.css">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
 </head>
 <body>
 <!-- Tutorial Overlay -->
@@ -85,13 +28,22 @@
 </section>
 
 <section id="app" class="hidden">
-  <header>
-    <strong>Thaw</strong>
-    <a href="/review">Image review</a>
-    <a href="/editor">Page editor</a>
-    <a href="#" id="settingsBtn">Settings</a>
-    <a href="#" id="logoutBtn" style="margin-left: auto; color: #dc2626;">Log out</a>
-  </header>
+<header class="topbar">
+  <a class="brand" href="/practice-test" aria-label="Thaw home">
+    <svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true">
+      <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#3CC7E8"/><stop offset="1" stop-color="#0E7C9B"/></linearGradient></defs>
+      <rect width="48" height="48" rx="12" fill="url(#tg)"/>
+      <path d="M24 9C24 9 14 21 14 28a10 10 0 0 0 20 0C34 21 24 9 24 9Z" fill="#fff"/>
+      <path d="M24 21v15M16.5 28.5h15" stroke="#0E7C9B" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <span>Thaw</span>
+  </a>
+  <div style="margin-left: auto; display: flex; gap: 10px;">
+    <a href="#" id="settingsBtn" class="hint" style="text-decoration: none;">Settings</a>
+    <a href="#" id="logoutBtn" style="color: var(--bad); text-decoration: none; font-weight: bold;">Log out</a>
+  </div>
+</header>
   <main>
 
     <section id="choose">
