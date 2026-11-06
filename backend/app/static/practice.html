@@ -388,7 +388,10 @@ function showProcessing(data) {
   if (active.length) {
     active.forEach(s => {
       const p = s.processing;
-      const text = s.filename + ": " + (p.status === "queued" ? "waiting" : "page " + p.pages_done + " of " + p.pages_total);
+      const statusText = p.status === "queued" ? "Waiting to start..." 
+                       : p.pages_done === p.pages_total ? "Ready to practise!" 
+                       : `Reading page ${p.pages_done} of ${p.pages_total}. You can start practising with what is ready.`;
+      const text = s.filename + ": " + statusText;
       const btn = el("button", { text: "Cancel", style: "margin-left: 10px; padding: 2px 8px;" });
       btn.addEventListener("click", () => cancelJob(p.id));
       box.appendChild(el("div", { text: text }, btn));
@@ -424,7 +427,7 @@ async function upload() {
   } catch (e) { $("uploadMsg").textContent = "Upload failed"; return; }
   if (!res.ok) { $("uploadMsg").textContent = data && typeof data.detail === "string" ? data.detail : "Upload failed"; return; }
   if (data.status === "failed") { $("uploadMsg").textContent = data.error || "Could not read file"; return; }
-  $("uploadMsg").textContent = "Processing started.";
+  $("uploadMsg").textContent = "Uploaded. Next we find the diagrams. This is not ready for practice yet.";
   $("fileInput").value = "";
   await start();
   $("sourceSelect").value = String(data.id);

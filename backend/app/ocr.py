@@ -200,17 +200,24 @@ def ocr_page_regions(db, page: PageRender) -> int:
         if any(r.x0 <= cx <= r.x1 and r.y0 <= cy <= r.y1 for r in existing):
             continue
             
-        # NEW: Auto-correct the spelling using the lecture text
-        text = item["text"]
-        corrections = accepted_variants(text, vocabulary)
-        
-        # NEW: If we corrected the spelling, we are highly confident in the text now
-        final_confidence = item["confidence"]
-        corrected_from = None
-        if corrections:
-            text = corrections[0]
-            corrected_from = item["text"]
-
+        # Filter out non-diagram labels
+        if item.get("role") != "diagram_label":
+            reject_reason = "role"
+        elif len(item["text"].split()) > 5 or len(item["text"]) > 40:
+            reject_reason = "length"
+        else:
+            reject_reason = None
+            
+        if reject_reason:
+            # Save it as rejected so we can audit it
+            db.add(LabelRegion(
+                page_id=page.id, user_id=page.user_id,
+                x0=item["x0"], y0=item["y0"], x1=item["x1"], y1=item["y1"],
+                text=item["text"], origin="ocr", status="rejected",
+                confidence=100.0, reject_reason=reject_reason, role=item.get("role")
+            ))
+            continue
+            
         db.add(
             LabelRegion(
                 page_id=page.id,
@@ -219,11 +226,11 @@ def ocr_page_regions(db, page: PageRender) -> int:
                 y0=item["y0"],
                 x1=item["x1"],
                 y1=item["y1"],
-                text=text,
+                text=item["text"],
                 origin="ocr",
-                status="auto" if final_confidence >= MIN_CONF_AUTO else "proposed",
-                confidence=final_confidence, # <--- Use the boosted confidence,
-                corrected_from=corrected_from,
+                status="auto",
+                confidence=100.0,
+                role=item.get("role")
             )
         )
         created += 1

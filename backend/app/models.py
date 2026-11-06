@@ -121,6 +121,8 @@ class PageRender(Base):
     height: Mapped[int] = mapped_column(Integer)
     ocr_done: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    diagram_label_count: Mapped[int] = mapped_column(Integer, default=0)
 
     regions: Mapped[list["LabelRegion"]] = relationship(
         cascade="all, delete-orphan", order_by="LabelRegion.y0"
@@ -144,6 +146,8 @@ class LabelRegion(Base):
     status: Mapped[str] = mapped_column(String(20), default="proposed")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     corrected_from: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    role: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     @property
     def accepted_answers(self) -> list[str]:
