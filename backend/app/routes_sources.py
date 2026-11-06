@@ -1,10 +1,10 @@
-from .plans import effective_plan, PLAN_LIMITS
+import logging
 import shutil
-import uuid
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -12,11 +12,15 @@ from .database import get_db
 from .deps import get_current_user
 from .extraction import EXTRACTORS, extract_file, split_text
 from .image_extraction import store_images
-from .models import Chunk, Course, ImageItem, Source, User
+from .models import (
+    Chunk, Course, ImageItem, LabelAudit, LabelFlag, LabelRegion, 
+    PageRender, ProcessingJob, Source, User
+)
 from .schemas import ChunkOut, SourceOut
 from .worker import enqueue_job
 
 router = APIRouter(prefix="/sources", tags=["sources"])
+log = logging.getLogger("thaw")
 
 UNSUPPORTED_HINT = {
     ".ppt": "Old PowerPoint files are not supported. Save the file as .pptx and upload again.",
@@ -150,21 +154,65 @@ def get_chunks(source_id: int, db: Session = Depends(get_db), user: User = Depen
 @router.delete("/{source_id}")
 def delete_source(source_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     source = get_own_source(db, source_id, user)
-    
-    # Delete physical files
+    stored_path = source.stored_path
+    owner_id = source.user_id
+
+    # 1. Stop any background job for this file first
+    active = db.scalars(
+        select(ProcessingJob).where(
+            ProcessingJob.source_id == source_id,
+            ProcessingJob.status.in_(["queued", "running"]),
+        )
+    ).all()
+    for job in active:
+        if job.status == "queued":
+            job.status = "cancelled"
+        else:
+            job.cancel_requested = True
+    if active:
+        db.commit()
+        for _ in range(20):
+            time.sleep(0.5)
+            db.expire_all()
+            still_running = db.scalar(
+                select(ProcessingJob.id)
+                .where(ProcessingJob.source_id == source_id, ProcessingJob.status == "running")
+                .limit(1)
+            )
+            if still_running is None:
+                break
+        else:
+            raise HTTPException(409, "This file is still being processed. It is stopping now. Try again in a few seconds.")
+
+    # 2. Delete database rows in a safe order, using bulk statements
     try:
-        Path(source.stored_path).unlink(missing_ok=True)
-        base = Path(settings.upload_dir) / str(source.user_id)
-        for folder in ("images", "pages", "converted"):
-            shutil.rmtree(base / folder / str(source.id), ignore_errors=True)
+        page_ids = select(PageRender.id).where(PageRender.source_id == source_id)
+        region_ids = select(LabelRegion.id).where(LabelRegion.page_id.in_(page_ids))
+        db.execute(delete(LabelFlag).where(LabelFlag.region_id.in_(region_ids)))
+        db.execute(delete(LabelAudit).where(LabelAudit.region_id.in_(region_ids)))
+        db.execute(delete(LabelRegion).where(LabelRegion.page_id.in_(page_ids)))
+        db.execute(delete(PageRender).where(PageRender.source_id == source_id))
+        db.execute(delete(ImageItem).where(ImageItem.source_id == source_id))
+        db.execute(delete(Chunk).where(Chunk.source_id == source_id))
+        db.execute(delete(ProcessingJob).where(ProcessingJob.source_id == source_id))
+        db.execute(delete(Source).where(Source.id == source_id))
+        db.commit()
     except Exception:
-        pass
-        
-    # The database will automatically delete all images, pages, and labels!
-    db.delete(source)
-    db.commit()
-    
+        db.rollback()
+        log.exception("delete_source failed for source %s", source_id)
+        raise HTTPException(500, "Could not delete this file. Nothing was removed. Please try again.")
+
+    # 3. Only now remove the files
+    try:
+        Path(stored_path).unlink(missing_ok=True)
+        base = Path(settings.upload_dir) / str(owner_id)
+        for folder in ("images", "pages", "converted"):
+            shutil.rmtree(base / folder / str(source_id), ignore_errors=True)
+    except Exception:
+        log.warning("file cleanup failed for source %s", source_id)
+
     return {"deleted": source_id}
+
 
 @router.post("/{source_id}/extract-images")
 def extract_images_again(source_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
