@@ -268,7 +268,13 @@ function el(tag, attrs = {}, ...kids) {
     if (key === "text") node.textContent = value;
     else node.setAttribute(key, value);
   }
-  kids.forEach((kid) => node.appendChild(kid));
+  kids.forEach((kid) => {
+    if (typeof kid === "string") {
+      node.appendChild(document.createTextNode(kid)); // <--- Fixes the crash
+    } else if (kid) {
+      node.appendChild(kid);
+    }
+  });
   return node;
 }
 

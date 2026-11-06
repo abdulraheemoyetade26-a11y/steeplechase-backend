@@ -45,5 +45,5 @@ def read_labels_with_ai(image_path: str) -> list[dict]:
         return labels
     except Exception as e:
         print(f"AI OCR failed: {e}")
-        print(response.text)
+        print(response.text) # <--- This will print what Gemini actually sent back
         return []
