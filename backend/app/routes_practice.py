@@ -376,13 +376,15 @@ def prepare_session(session_id: int, db: Session = Depends(get_db), user: User =
         regions = [by_id[i] for i in ids if i in by_id]
         
         # Generate ONE image at a time
-        try:
         if not ensure_local(page.file_path, settings.upload_dir):
             print(f"Missing file for station {station.number}: {page.file_path}")
             continue
+
+        try:
             payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
             cache_file.write_bytes(payload)
         except Exception as e:
+            print(f"Failed to generate image for station {station.number}: {e}")
             # If one image fails, skip it (don't crash the whole session)
             print(f"Failed to generate image for station {station.number}: {e}")
             continue
@@ -412,25 +414,27 @@ def station_image(
     cache_file = cache_dir / f"station_{session_id}_{number}.jpg"
 
     if cache_file.exists():
-        # If we already made this image, send it immediately!
         return FileResponse(cache_file, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
-    # If it doesn't exist, generate it now
     page = db.get(PageRender, station.page_id) if station.page_id else None
     if page is None:
         raise HTTPException(404, "The source page for this station no longer exists")
         
+    # --- CHECK STORAGE HERE ---
+    if not ensure_local(page.file_path, settings.upload_dir):
+        raise HTTPException(410, "The images for this deck are no longer stored. Please ask the admin to re-upload the deck.")
+    # --------------------------
+
     ids = region_ids_of(station)
     by_id = load_regions(db, ids)
     regions = [by_id[i] for i in ids if i in by_id]
-    if not ensure_local(page.file_path, settings.upload_dir):
-        raise HTTPException(410, "The images for this deck are no longer stored. Please ask the admin to re-upload the deck.")
+    
     payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
     
-    # Save it to the cache folder for next time
     cache_file.write_bytes(payload)
     
     return Response(content=payload, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
     # --- CACHING LOGIC ENDS HERE ---
 
 @router.post("/sessions/{session_id}/stations/{number}/answer")
@@ -633,13 +637,17 @@ def reveal_station(
     if station.kind != "station" or page is None:
         raise HTTPException(404, "Nothing to show for this station")
 
+    # --- CHECK STORAGE HERE ---
+    if not ensure_local(page.file_path, settings.upload_dir):
+        raise HTTPException(410, "The images for this deck are no longer stored.")
+    # --------------------------
+
     try:
         items = json.loads(station.results_json or "[]")
     except ValueError:
         items = []
     by_id = load_regions(db, [i["region_id"] for i in items])
-    if not ensure_local(page.file_path, settings.upload_dir):
-        raise HTTPException(410, "The images for this deck are no longer stored.")
+
     img = Image.open(page.file_path).convert("RGB")
     width, height = img.size
     draw = ImageDraw.Draw(img)
@@ -659,6 +667,7 @@ def reveal_station(
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=88)
     return Response(content=buffer.getvalue(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
 
 @router.post("/flags")
 def flag_label(data: FlagIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
