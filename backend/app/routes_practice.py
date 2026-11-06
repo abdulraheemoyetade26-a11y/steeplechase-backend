@@ -119,16 +119,27 @@ def describe_session(session: PracticeSession, now: datetime) -> dict:
     }
 
 def masked_image(path: str, regions: list[LabelRegion], numbered: bool) -> bytes:
+    # Open the image
     img = Image.open(path).convert("RGB")
+    
+    # RESIZE the image to save memory (max width 1000px)
+    max_width = 1000
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        
     width, height = img.size
     draw = ImageDraw.Draw(img)
+    
     for number, region in enumerate(regions, start=1):
         box = (int(region.x0 * width), int(region.y0 * height), int(region.x1 * width), int(region.y1 * height))
         draw.rectangle(box, fill=(70, 70, 70), outline=(255, 255, 255), width=2)
         if numbered:
             draw_number(draw, box, str(number))
+            
     buffer = io.BytesIO()
-    img.save(buffer, format="JPEG", quality=88)
+    img.save(buffer, format="JPEG", quality=80) # Lower quality to save memory
     return buffer.getvalue()
 
 @router.post("/sessions")
