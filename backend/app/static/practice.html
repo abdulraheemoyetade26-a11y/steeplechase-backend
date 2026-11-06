@@ -569,8 +569,24 @@ async function begin() {
     labels_per_station: Number($("labels").value), rest_every: Number($("restEvery").value), rest_seconds: Number($("restSeconds").value),
   };
   if ($("sourceSelect").value) body.source_ids = [Number($("sourceSelect").value)];
-  try { run.session = await call("POST", "/practice/sessions", body); }
-  catch (e) { $("setupMsg").textContent = e.message; return; }
+  
+  $("startBtn").disabled = true;
+  $("startBtn").textContent = "Generating images...";
+  
+  try { 
+    run.session = await call("POST", "/practice/sessions", body); 
+    // NEW: Tell the server to generate all the images NOW
+    await call("POST", "/practice/sessions/" + run.session.id + "/prepare");
+  }
+  catch (e) { 
+    $("setupMsg").textContent = e.message; 
+    $("startBtn").disabled = false;
+    $("startBtn").textContent = "Start practice";
+    return; 
+  }
+  
+  $("startBtn").disabled = false;
+  $("startBtn").textContent = "Start practice";
   run.index = 0; $("runMsg").textContent = ""; next();
 }
 

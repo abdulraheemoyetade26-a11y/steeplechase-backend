@@ -625,3 +625,33 @@ def flag_label(data: FlagIn, db: Session = Depends(get_db), user: User = Depends
     ))
     db.commit()
     return {"flagged": region.id}
+
+
+@router.post("/sessions/{session_id}/prepare")
+def prepare_session(session_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    session = own_session(db, session_id, user)
+    if session.status != "active":
+        raise HTTPException(409, "Session is not active")
+    
+    cache_dir = Path("cache")
+    cache_dir.mkdir(exist_ok=True)
+    
+    for station in session.stations:
+        if station.kind != "station":
+            continue
+            
+        cache_file = cache_dir / f"station_{session.id}_{station.number}.jpg"
+        if cache_file.exists():
+            continue
+            
+        page = db.get(PageRender, station.page_id) if station.page_id else None
+        if page is None:
+            continue
+            
+        ids = region_ids_of(station)
+        by_id = load_regions(db, ids)
+        regions = [by_id[i] for i in ids if i in by_id]
+        payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
+        cache_file.write_bytes(payload)
+        
+    return {"status": "ready"}
