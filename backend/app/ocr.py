@@ -74,6 +74,7 @@ def ocr_page_regions(db, page: PageRender) -> int:
             continue
             
         # Filter 3: The Magic Subtraction
+        # Filter 3: The Magic Subtraction
         if is_heading_or_text(item, pdf_boxes):
             db.add(LabelRegion(
                 page_id=page.id, user_id=page.user_id,

@@ -10,13 +10,20 @@ def read_labels_with_ai(image_path: str) -> list[dict]:
     img = Image.open(image_path)
     
     prompt = """
-    You are a highly accurate OCR tool.
-    Extract EVERY SINGLE WORD OR SHORT PHRASE from this image. Do not summarize. Do not skip small text.
-    Return the exact coordinates for each piece of text.
+    You are a medical OCR assistant. 
+    Look at this lecture slide. 
     
-    Return ONLY JSON in this format:
-    {"items":[{"text": "word or phrase", "xmin": 0.0, "ymin": 0.0, "xmax": 1.0, "ymax": 1.0}]}
+    Ignore the main title at the top. Ignore the bullet points and paragraphs.
+    
+    Your ONLY job is to find the small text labels that are next to a diagram, illustration, or picture. These labels usually have a straight line or arrow pointing to a specific part of the anatomy.
+    
+    Return ONLY the text labels that are physically attached to the drawing. 
+    
+    Return ONLY JSON: {"items":[{"text": "...", "xmin": 0.0, "ymin": 0.0, "xmax": 1.0, "ymax": 1.0}]}
+    
+    If there are no diagrams or labels on the page, return {"items": []}.
     """
+
     
     model = genai.GenerativeModel('gemini-1.5-flash')
     response = model.generate_content([prompt, img])
