@@ -33,6 +33,21 @@
   <h3>Pending Reports</h3>
   <table id="flagTable"><tr><th>ID</th><th>User</th><th>Label</th><th>Confidence</th><th>Actions</th></tr></table>
 </div>
+<div class="box" id="auditBox" style="display:none;">
+  <h3>Label Audit (200 random labels)</h3>
+  <p class="hint">Look at the crop. Is the label text correct for the image?</p>
+  <div id="auditImgContainer" style="text-align: center; margin: 20px 0;">
+    <img id="auditImg" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid var(--accent);" />
+  </div>
+  <h4 id="auditText" style="text-align: center; font-size: 1.5rem;"></h4>
+  <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+    <button class="primary" onclick="voteAudit(true)">Correct</button>
+    <button class="danger" onclick="voteAudit(false)">Wrong / Junk</button>
+  </div>
+  <p id="auditProgress" class="hint" style="text-align: center; margin-top: 10px;"></p>
+</div>
+
+<button onclick="startAudit()" class="primary" style="margin-bottom: 20px;">Start 200-Label Audit</button>
 
 <div class="box">
   <h3>OCR Confidence Stats (The Audit)</h3>
@@ -141,6 +156,45 @@ async function loadStats() {
   });
 }
 loadStats();
+let auditLabels = [];
+let auditIndex = 0;
+
+async function startAudit() {
+  document.getElementById("auditBox").style.display = "block";
+  const res = await api("/admin/audit/labels");
+  auditLabels = await res.json();
+  auditIndex = 0;
+  showAuditLabel();
+}
+
+async function showAuditLabel() {
+  if (auditIndex >= auditLabels.length) {
+    document.getElementById("auditImg").style.display = "none";
+    document.getElementById("auditText").textContent = "Audit Complete! Thank you.";
+    document.getElementById("auditProgress").textContent = "";
+    return;
+  }
+  
+  const label = auditLabels[auditIndex];
+  document.getElementById("auditText").textContent = label.text;
+  document.getElementById("auditProgress").textContent = `Label ${auditIndex + 1} of ${auditLabels.length}`;
+  
+  // Fetch the image crop for this specific label
+  // We use the existing label-review crop endpoint!
+  const imgRes = await api("/label-review/" + label.id + "/crop");
+  if (imgRes.ok) {
+    document.getElementById("auditImg").src = URL.createObjectURL(await imgRes.blob());
+  } else {
+    document.getElementById("auditImg").src = "";
+  }
+}
+
+async function voteAudit(isCorrect) {
+  const label = auditLabels[auditIndex];
+  await api(`/admin/audit/labels/${label.id}/vote?is_correct=${isCorrect}`, { method: "POST" });
+  auditIndex++;
+  showAuditLabel();
+}
 
 </script>
 </body>

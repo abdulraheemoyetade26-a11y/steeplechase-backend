@@ -9,7 +9,7 @@ from .plans import effective_plan, apply_plan
 from .database import get_db
 from .deps import require_admin
 from .models import User, ActivationCode, LabelFlag, LabelRegion, naive_now
-
+from .models import LabelRegion, PageRender, User
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -112,3 +112,37 @@ def submit_feedback(data: FeedbackIn, db: Session = Depends(get_db), admin: User
     # Actually, we don't want require_admin for this. We want any logged-in user.
     # Let's change it to get_current_user.
     pass
+
+@router.get("/audit/labels")
+def get_audit_labels(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    # Get 200 random labels that Gemini read as diagram_labels
+    labels = db.execute(
+        select(LabelRegion)
+        .where(LabelRegion.role == "diagram_label", LabelRegion.status != "rejected")
+        .order_by(func.random())
+        .limit(200)
+    ).scalars().all()
+    
+    return [
+        {
+            "id": l.id, 
+            "text": l.text, 
+            "page_id": l.page_id,
+            "x0": l.x0, "y0": l.y0, "x1": l.x1, "y1": l.y1
+        } for l in labels
+    ]
+
+@router.post("/audit/labels/{label_id}/vote")
+def vote_audit_label(label_id: int, is_correct: bool, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    label = db.get(LabelRegion, label_id)
+    if not label:
+        raise HTTPException(404, "Label not found")
+    
+    if not is_correct:
+        # If the admin says it's wrong, we reject it immediately
+        label.status = "rejected"
+        label.reject_reason = "admin_audit_fail"
+        db.commit()
+        return {"status": "rejected"}
+        
+    return {"status": "kept"}
