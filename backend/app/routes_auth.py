@@ -61,3 +61,15 @@ def mark_tutorial_done(user: User = Depends(get_current_user), db: Session = Dep
     user.tutorial_seen = True
     db.commit()
     return {"status": "ok"}
+
+
+@router.delete("/me")
+def delete_account(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Delete all user data (cascade delete is handled by the database, but we do it manually to be safe)
+    from .models import Source, PracticeSession, Feedback
+    db.query(Source).filter(Source.user_id == user.id).delete()
+    db.query(PracticeSession).filter(PracticeSession.user_id == user.id).delete()
+    db.query(Feedback).filter(Feedback.user_id == user.id).delete()
+    db.delete(user)
+    db.commit()
+    return {"status": "deleted"}

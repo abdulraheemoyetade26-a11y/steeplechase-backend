@@ -79,3 +79,10 @@ ADMIN_PAGE = Path(__file__).parent / "static" / "admin.html"
 @app.get("/admin-test", response_class=HTMLResponse, include_in_schema=False)
 def admin_page():
     return ADMIN_PAGE.read_text(encoding="utf-8")
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page():
+    return (Path(__file__).parent / "static" / "privacy.html").read_text(encoding="utf-8")
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_page():
+    return (Path(__file__).parent / "static" / "terms.html").read_text(encoding="utf-8")

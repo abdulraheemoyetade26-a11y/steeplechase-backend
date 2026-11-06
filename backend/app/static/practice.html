@@ -81,6 +81,7 @@
     <strong>Thaw</strong>
     <a href="/review">Image review</a>
     <a href="/editor">Page editor</a>
+    <a href="#" id="settingsBtn">Settings</a>
     <a href="#" id="logoutBtn" style="margin-left: auto; color: #dc2626;">Log out</a>
   </header>
   <main>
@@ -173,6 +174,23 @@
   </main>
 </section>
 <button id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px; background: var(--accent); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">💬</button>
+<!-- Settings Modal -->
+<div id="settingsModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1002; padding: 20px;">
+  <div style="background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; margin: 40px auto;">
+    <h3 style="margin-top: 0;">Settings</h3>
+    <p class="hint">Manage your account and data.</p>
+    
+    <div style="margin-top: 20px;">
+      <a href="/privacy" target="_blank" style="color: var(--accent); display: block; margin-bottom: 10px;">Privacy Policy</a>
+      <a href="/terms" target="_blank" style="color: var(--accent); display: block; margin-bottom: 20px;">Terms of Service</a>
+    </div>
+
+    <button id="deleteAccountBtn" style="background: var(--bad); color: white; width: 100%; padding: 10px; border-radius: 8px; border: none; cursor: pointer;">Delete My Account</button>
+    <p class="hint" style="margin-top: 5px;">This will permanently delete your account and all uploaded files.</p>
+
+    <button id="closeSettings" style="margin-top: 20px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer;">Close</button>
+  </div>
+</div>
 
 <!-- Feedback Modal -->
 <div id="feedbackModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1001; display: flex; align-items: center; justify-content: center; padding: 20px;">
@@ -747,6 +765,36 @@ document.body.addEventListener("click", (e) => {
       document.getElementById("feedbackMsg").textContent = err.message;
       btn.disabled = false;
     });
+  }
+});
+// Settings Logic
+document.body.addEventListener("click", async (e) => {
+  if (e.target.closest("#settingsBtn")) {
+    document.getElementById("settingsModal").classList.remove("hidden");
+    document.getElementById("settingsModal").style.display = "flex";
+  }
+  
+  if (e.target.closest("#closeSettings")) {
+    document.getElementById("settingsModal").classList.add("hidden");
+    document.getElementById("settingsModal").style.display = "none";
+  }
+  
+  if (e.target.closest("#deleteAccountBtn")) {
+    if (!confirm("Are you sure? This will permanently delete your account, uploaded PDFs, and scores. This cannot be undone.")) return;
+    
+    const btn = document.getElementById("deleteAccountBtn");
+    btn.disabled = true;
+    btn.textContent = "Deleting...";
+    
+    try {
+      await call("DELETE", "/auth/me");
+      localStorage.removeItem("token");
+      window.location.reload();
+    } catch (err) {
+      alert("Error deleting account: " + err.message);
+      btn.disabled = false;
+      btn.textContent = "Delete My Account";
+    }
   }
 });
 </script>
