@@ -1,3 +1,4 @@
+from .routes_feedback import router as feedback_router
 from fastapi.staticfiles import StaticFiles
 from .routes_admin import router as admin_router
 from contextlib import asynccontextmanager
@@ -48,7 +49,7 @@ app.include_router(review_router)
 app.include_router(jobs_router)
 app.include_router(plan_router)
 app.include_router(admin_router)
-
+app.include_router(feedback_router)
 REVIEW_PAGE = Path(__file__).parent / "static" / "review.html"
 EDITOR_PAGE = Path(__file__).parent / "static" / "editor.html"
 

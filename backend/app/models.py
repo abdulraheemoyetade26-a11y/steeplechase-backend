@@ -246,3 +246,15 @@ class ActivationCode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_now)
     used_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    message: Mapped[str] = mapped_column(Text)
+    page: Mapped[str] = mapped_column(String(300), default="")
+    user_agent: Mapped[str] = mapped_column(String(300), default="")
+    status: Mapped[str] = mapped_column(String(20), default="new")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_now)

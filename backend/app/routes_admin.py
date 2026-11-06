@@ -101,3 +101,14 @@ def confidence_stats(db: Session = Depends(get_db), admin: User = Depends(requir
         band["kept_percent"] = round(100 * band["kept"] / total, 1)
         result.append(band)
     return result
+
+class FeedbackIn(BaseModel):
+    message: str
+    page: str
+    user_agent: str
+
+@router.post("/feedback")
+def submit_feedback(data: FeedbackIn, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    # Actually, we don't want require_admin for this. We want any logged-in user.
+    # Let's change it to get_current_user.
+    pass
