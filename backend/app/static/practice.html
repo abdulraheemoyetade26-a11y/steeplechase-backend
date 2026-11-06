@@ -189,17 +189,7 @@ const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
 let isLoginMode = true;
 
 // --- THEME TOGGLE ---
-const themeToggle = $("themeToggle");
-const themeIcon = $("themeIcon");
-let isDark = document.documentElement.getAttribute("data-theme") === "dark";
-themeIcon.textContent = isDark ? "🌙" : "☀️";
 
-themeToggle.addEventListener("click", () => {
-  isDark = !isDark;
-  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
-  localStorage.setItem("thaw-theme", isDark ? "dark" : "light");
-  themeIcon.textContent = isDark ? "🌙" : "☀️";
-});
 
 // --- TUTORIAL LOGIC ---
 const TUT_STEPS = [
