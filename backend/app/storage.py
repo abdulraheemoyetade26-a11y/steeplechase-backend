@@ -18,8 +18,9 @@ def put_file(path, root, content_type="application/octet-stream"):
     try:
         _bucket().upload(_key(path, root), Path(path).read_bytes(),
                         {"content-type": content_type, "upsert": "true"})
+        print(f"✅ Uploaded {path} to Supabase")
     except Exception as e:
-        print(f"❌ SUPABASE UPLOAD FAILED: {e}") # <--- Add this line
+        print(f"❌ SUPABASE UPLOAD FAILED for {path}: {e}")
 
 def ensure_local(path, root) -> bool:
     p = Path(path)

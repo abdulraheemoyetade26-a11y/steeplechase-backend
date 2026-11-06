@@ -33,9 +33,12 @@ def read_labels_with_ai(image_path: str) -> list[dict]:
         
         labels = []
         for item in data.get("items", []):
+            # If Gemini forgot to include a role, default to 'other'
+            role = item.get("role", "other")
+            
             labels.append({
                 "text": item.get("text", ""),
-                "role": item.get("role", "other"),
+                "role": role, # <--- Ensure this is always a string
                 "x0": float(item.get("xmin", 0)),
                 "y0": float(item.get("ymin", 0)),
                 "x1": float(item.get("xmax", 0)),
@@ -45,5 +48,5 @@ def read_labels_with_ai(image_path: str) -> list[dict]:
         return labels
     except Exception as e:
         print(f"AI OCR failed: {e}")
-        print(response.text) # <--- This will print what Gemini actually sent back
+        print(response.text)
         return []
