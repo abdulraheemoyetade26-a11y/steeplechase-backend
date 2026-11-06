@@ -1,3 +1,6 @@
+from pathlib import Path
+import io
+from PIL import Image, ImageDraw
 from fastapi.responses import FileResponse
 import os
 from pathlib import Path
@@ -305,38 +308,42 @@ def station_detail(
         detail["seconds_left"] = max(0, round((deadline_of(session, station) - now).total_seconds()))
     return detail
 
-@router.post("/sessions/{session_id}/stations/{number}/start")
-def start_station(
-    session_id: int, number: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
-):
+@router.post("/sessions/{session_id}/prepare")
+def prepare_session(session_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     session = own_session(db, session_id, user)
     if session.status != "active":
-        raise HTTPException(409, "This session is already finished")
-    station = get_station(db, session, number)
-    if station.kind == "rest":
-        return {"kind": "rest", "seconds_total": session.rest_seconds}
+        raise HTTPException(409, "Session is not active")
+    
+    cache_dir = Path("cache")
+    cache_dir.mkdir(exist_ok=True)
+    
+    for station in session.stations:
+        if station.kind != "station":
+            continue
+            
+        cache_file = cache_dir / f"station_{session.id}_{station.number}.jpg"
+        if cache_file.exists():
+            continue
+            
+        page = db.get(PageRender, station.page_id) if station.page_id else None
+        if page is None:
+            continue
+            
+        ids = region_ids_of(station)
+        by_id = load_regions(db, ids)
+        regions = [by_id[i] for i in ids if i in by_id]
+        
+        # Generate ONE image at a time
+        try:
+            payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
+            cache_file.write_bytes(payload)
+        except Exception as e:
+            # If one image fails, skip it (don't crash the whole session)
+            print(f"Failed to generate image for station {station.number}: {e}")
+            continue
+        
+    return {"status": "ready"}
 
-    now = utcnow()
-    state = station_state(session, station, now)
-    if state in ("done", "expired"):
-        raise HTTPException(409, "This station is already finished")
-    blockers = [
-        s for s in session.stations
-        if s.number < number and s.kind == "station" and station_state(session, s, now) in ("pending", "active")
-    ]
-    if blockers:
-        raise HTTPException(409, "Finish the earlier stations first")
-
-    if station.started_at is None:
-        station.started_at = now
-        db.commit()
-    left = max(0, round((deadline_of(session, station) - now).total_seconds()))
-    return {
-        "kind": "station",
-        "labels": len(region_ids_of(station)),
-        "seconds_total": session.seconds_per_station,
-        "seconds_left": left,
-    }
 
 @router.get("/sessions/{session_id}/stations/{number}/image")
 def station_image(
