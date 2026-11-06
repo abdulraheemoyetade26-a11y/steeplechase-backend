@@ -172,6 +172,12 @@
     <section id="results" class="hidden"></section>
   </main>
 </section>
+<button id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px; background: var(--accent); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">💬</button>
+
+<!-- Feedback Modal -->
+<div id="feedbackModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1001; display: flex; align-items: center; justify-content: center; padding: 20px;">
+
+
 <script>
 let token = localStorage.getItem("token") || "";
 const $ = (id) => document.getElementById(id);
@@ -730,10 +736,6 @@ $("feedbackSubmit").addEventListener("click", async () => {
 });
 </script>
 <!-- Feedback Button -->
-<button id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px; background: var(--accent); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">💬</button>
-
-<!-- Feedback Modal -->
-<div id="feedbackModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1001; display: flex; align-items: center; justify-content: center; padding: 20px;">
   <div style="background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%;">
     <h3 style="margin-top: 0;">Report a problem</h3>
     <p class="hint" style="margin-bottom: 10px;">Tell us what broke, or what is confusing.</p>
