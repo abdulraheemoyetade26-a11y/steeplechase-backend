@@ -7,6 +7,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Thaw</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#1f6feb">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  }
+</script>
 <style>
   :root { --bg:#ffffff; --fg:#1b1b1b; --card:#f3f4f6; --line:#d0d5dd; --accent:#1f6feb; --muted:#667085; --good:#16a34a; --bad:#dc2626; }
   @media (prefers-color-scheme: dark) {
@@ -173,7 +181,7 @@
     <section id="results" class="hidden"></section>
   </main>
 </section>
-<button id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px; background: var(--accent); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">💬</button>
+<button class="hidden" id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px; background: var(--accent); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">💬</button>
 <!-- Settings Modal -->
 <div id="settingsModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1002; padding: 20px;">
   <div style="background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; margin: 40px auto;">
@@ -193,7 +201,7 @@
 </div>
 
 <!-- Feedback Modal -->
-<div id="feedbackModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1001; display: flex; align-items: center; justify-content: center; padding: 20px;">
+<div id="feedbackModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1001; padding: 20px;">
 
 
 <script>
@@ -263,6 +271,8 @@ function show(name) {
 function showLogin(message) {
   $("app").classList.add("hidden");
   $("login").classList.remove("hidden");
+  $("feedbackBtn").classList.add("hidden");
+
   $("loginMsg").textContent = message || "";
 }
 
@@ -355,6 +365,7 @@ function minutesText(seconds) {
 async function start() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
+  $("feedbackBtn").classList.remove("hidden");
   
   await maybeShowTutorial();
 
@@ -802,6 +813,7 @@ document.body.addEventListener("click", (e) => {
   if (e.target.closest("#logoutBtn")) {
     e.preventDefault();
     localStorage.removeItem("token");
+    $("feedbackBtn").classList.add("hidden"); // Hide button before reload
     window.location.reload();
   }
 });
