@@ -146,3 +146,10 @@ def vote_audit_label(label_id: int, is_correct: bool, db: Session = Depends(get_
         return {"status": "rejected"}
         
     return {"status": "kept"}
+
+@router.get("/debug/roles")
+def debug_roles(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    from sqlalchemy import func
+    from .models import LabelRegion
+    rows = db.execute(select(LabelRegion.role, LabelRegion.status, func.count()).group_by(LabelRegion.role, LabelRegion.status)).all()
+    return [{"role": r, "status": s, "count": c} for r, s, c in rows]
