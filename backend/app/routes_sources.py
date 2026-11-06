@@ -151,7 +151,7 @@ def get_chunks(source_id: int, db: Session = Depends(get_db), user: User = Depen
 def delete_source(source_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     source = get_own_source(db, source_id, user)
     
-    # 1. Delete files from disk (ignore errors if missing)
+    # Delete physical files
     try:
         Path(source.stored_path).unlink(missing_ok=True)
         base = Path(settings.upload_dir) / str(source.user_id)
@@ -160,28 +160,7 @@ def delete_source(source_id: int, db: Session = Depends(get_db), user: User = De
     except Exception:
         pass
         
-    # 2. Delete children from database manually (to avoid foreign key errors)
-    from .models import Chunk, ImageItem, PageRender, LabelRegion, ProcessingJob
-    from sqlalchemy import delete
-    
-    # Delete label regions linked to pages of this source
-    page_ids = [p.id for p in db.scalars(select(PageRender).where(PageRender.source_id == source.id)).all()]
-    if page_ids:
-        db.execute(delete(LabelRegion).where(LabelRegion.page_id.in_(page_ids)))
-        
-    # Delete pages
-    db.execute(delete(PageRender).where(PageRender.source_id == source.id))
-    
-    # Delete images
-    db.execute(delete(ImageItem).where(ImageItem.source_id == source.id))
-    
-    # Delete chunks
-    db.execute(delete(Chunk).where(Chunk.source_id == source.id))
-    
-    # Delete processing jobs
-    db.execute(delete(ProcessingJob).where(ProcessingJob.source_id == source.id))
-    
-    # 3. Finally, delete the source
+    # The database will automatically delete all images, pages, and labels!
     db.delete(source)
     db.commit()
     
