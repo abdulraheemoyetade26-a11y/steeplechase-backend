@@ -5,20 +5,22 @@ from .ai_ocr import read_labels_with_ai
 
 class OcrUnavailable(Exception):
     pass
+
 MIN_CONF_AUTO = 70.0
 
 def get_pdf_text_boxes(pdf_path, page_number):
-    """Extracts the bounding boxes of all text on a specific page."""
+    """Extracts all words and their coordinates from the PDF text layer."""
     boxes = []
     try:
         with fitz.open(pdf_path) as doc:
+            if page_number > len(doc):
+                return boxes
             page = doc[page_number - 1]
             words = page.get_text("words")
             for w in words:
                 x0, y0, x1, y1, text, *_ = w
-                # Convert PDF points to 0.0 - 1.0 fractions
                 boxes.append({
-                    "text": text.lower(),
+                    "text": text.lower().strip(),
                     "x0": x0 / page.rect.width,
                     "y0": y0 / page.rect.height,
                     "x1": x1 / page.rect.width,
@@ -28,22 +30,35 @@ def get_pdf_text_boxes(pdf_path, page_number):
         print(f"Could not read PDF text layer: {e}")
     return boxes
 
-def is_heading(label, pdf_boxes):
-    """Check if the label's coordinates match a word in the PDF's text layer."""
+def is_heading_or_text(label, pdf_boxes):
+    """Checks if the label overlaps with existing text in the PDF."""
+    if not pdf_boxes:
+        return False
+        
+    label_text = label["text"].lower().strip()
+    
     for box in pdf_boxes:
-        # If the text is similar and the boxes overlap heavily
-        if label["text"].lower() in box["text"] or box["text"] in label["text"].lower():
-            # Check overlap
+        # If the text is exactly the same or contains each other
+        if label_text in box["text"] or box["text"] in label_text:
+            # Check if the coordinates overlap significantly
+            # If they overlap, it's a heading or body text.
             if (label["x0"] < box["x1"] and label["x1"] > box["x0"] and 
                 label["y0"] < box["y1"] and label["y1"] > box["y0"]):
                 return True
     return False
 
 def ocr_page_regions(db, page: PageRender) -> int:
+    from .models import Source
+    source = db.get(Source, page.source_id)
+    if not source:
+        return 0
+    # 1. Get everything Gemini sees on the image
     found = read_labels_with_ai(page.file_path)
-    pdf_boxes = get_pdf_text_boxes(page.file_path, 1) # Assuming 1 page image per PDF page
     
-    # Clear old labels for this page
+    # 2. Get every word from the PDF text layer
+    pdf_boxes = get_pdf_text_boxes(page.stored_path, page.page_number)
+    
+    # 3. Clear old labels
     db.execute(delete(LabelRegion).where(LabelRegion.page_id == page.id))
     
     created = 0
@@ -51,24 +66,24 @@ def ocr_page_regions(db, page: PageRender) -> int:
         text = item["text"].strip()
         
         # Filter 1: Too long (likely a sentence)
-        if len(text.split()) > 5:
+        if len(text.split()) > 6:
             continue
             
-        # Filter 2: It's a heading from the PDF text layer
-        if is_heading(item, pdf_boxes):
+        # Filter 2: Junk (single letters, numbers)
+        if len(text) < 3 or text.isdigit():
+            continue
+            
+        # Filter 3: The Magic Subtraction
+        if is_heading_or_text(item, pdf_boxes):
             db.add(LabelRegion(
                 page_id=page.id, user_id=page.user_id,
                 x0=item["x0"], y0=item["y0"], x1=item["x1"], y1=item["y1"],
                 text=text, origin="ocr", status="rejected",
-                confidence=100.0, reject_reason="heading"
+                confidence=100.0, reject_reason="pdf_text"
             ))
             continue
             
-        # Filter 3: Junk (single letters, numbers)
-        if len(text) < 3 or text.isdigit():
-            continue
-            
-        # Keep it!
+        # If it survives all filters, it's a true diagram label!
         db.add(
             LabelRegion(
                 page_id=page.id, user_id=page.user_id,
