@@ -1,3 +1,9 @@
+import logging
+import os
+import traceback
+import uuid
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from .routes_feedback import router as feedback_router
 from fastapi.staticfiles import StaticFiles
 from .routes_admin import router as admin_router
@@ -30,6 +36,20 @@ async def lifespan(_app):
     stop_worker()
 
 app = FastAPI(title="Thaw API", lifespan=lifespan)
+log = logging.getLogger("thaw")
+DEBUG_ERRORS = os.getenv("DEBUG_ERRORS", "0") == "1"
+
+@app.exception_handler(Exception)
+async def unhandled(request: Request, exc: Exception):
+    error_id = uuid.uuid4().hex[:8]
+    log.error(
+        "ERROR %s %s %s: %r\n%s",
+        error_id, request.method, request.url.path, exc, traceback.format_exc(),
+    )
+    body = {"detail": "Something went wrong on our side.", "error_id": error_id}
+    if DEBUG_ERRORS:
+        body["debug"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+    return JSONResponse(status_code=500, content=body)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.add_middleware(
     CORSMiddleware,
