@@ -9,7 +9,7 @@ from .plans import effective_plan, apply_plan
 from .database import get_db
 from .deps import require_admin
 from .models import User, ActivationCode, LabelFlag, LabelRegion, naive_now
-from .plans import effective_plan, apply_plan # We will add apply_plan to plans.py next
+
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .database import get_db
 from .deps import get_current_user
-from .models import ImageItem, LabelRegion, PageRender, User
 from .page_rendering import render_source_pages
 from .routes_sources import get_own_source
 from .schemas import (

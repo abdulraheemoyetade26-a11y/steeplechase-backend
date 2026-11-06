@@ -1,37 +1,30 @@
-from pathlib import Path
-import io
-from PIL import Image, ImageDraw
-from fastapi.responses import FileResponse
-import os
-from pathlib import Path
 import io
 import json
 import random
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import and_, or_, select, func
-from .plans import plan_summary
-from .trust import (
-    PRACTICE_MIN_CONF,
-    REVIEW_SECONDS_PER_LABEL,
-    accepted_variants,
-    build_vocabulary,
-    is_eligible,
-    is_supported,
-    region_trust,
-)
+from pathlib import Path
 
-from .worker import job_summary
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import FileResponse
 from PIL import Image, ImageDraw
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select, func
 from sqlalchemy.orm import Session
 
 from .database import get_db
 from .deps import get_current_user
 from .grading import grade_answer, outcome_points
-from .models import LabelFlag, LabelRegion, PageRender, PracticeSession, PracticeStation, ProcessingJob, Source, User
+from .models import (
+    LabelFlag, LabelRegion, PageRender, PracticeSession,
+    PracticeStation, Source, User, ProcessingJob
+)
+from .plans import plan_summary
 from .routes_pages import draw_number
+from .trust import (
+    PRACTICE_MIN_CONF, REVIEW_SECONDS_PER_LABEL, accepted_variants,
+    build_vocabulary, is_eligible, is_supported, region_trust
+)
+from .worker import job_summary
 
 router = APIRouter(prefix="/practice", tags=["practice"])
 
@@ -645,31 +638,3 @@ def flag_label(data: FlagIn, db: Session = Depends(get_db), user: User = Depends
     return {"flagged": region.id}
 
 
-@router.post("/sessions/{session_id}/prepare")
-def prepare_session(session_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    session = own_session(db, session_id, user)
-    if session.status != "active":
-        raise HTTPException(409, "Session is not active")
-    
-    cache_dir = Path("cache")
-    cache_dir.mkdir(exist_ok=True)
-    
-    for station in session.stations:
-        if station.kind != "station":
-            continue
-            
-        cache_file = cache_dir / f"station_{session.id}_{station.number}.jpg"
-        if cache_file.exists():
-            continue
-            
-        page = db.get(PageRender, station.page_id) if station.page_id else None
-        if page is None:
-            continue
-            
-        ids = region_ids_of(station)
-        by_id = load_regions(db, ids)
-        regions = [by_id[i] for i in ids if i in by_id]
-        payload = masked_image(page.file_path, regions, numbered=len(regions) > 1)
-        cache_file.write_bytes(payload)
-        
-    return {"status": "ready"}
