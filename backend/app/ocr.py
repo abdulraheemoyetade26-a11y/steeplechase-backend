@@ -28,6 +28,33 @@ def get_pdf_heading_texts(pdf_path, page_number):
         print(f"Could not read PDF text layer: {e}")
     return headings
 
+def get_pdf_text_boxes(pdf_path, page_number):
+    import fitz
+    boxes = []
+    try:
+        with fitz.open(pdf_path) as doc:
+            if page_number > len(doc): return boxes
+            page = doc[page_number - 1]
+            for w in page.get_text("words"):
+                x0, y0, x1, y1, text, *_ = w
+                boxes.append({
+                    "text": text.lower().strip(),
+                    "x0": x0 / page.rect.width, "y0": y0 / page.rect.height,
+                    "x1": x1 / page.rect.width, "y1": y1 / page.rect.height
+                })
+    except: pass
+    return boxes
+
+def is_heading_or_text(label, pdf_boxes):
+    if not pdf_boxes: return False
+    label_text = label["text"].lower().strip()
+    for box in pdf_boxes:
+        if label_text in box["text"] or box["text"] in label_text:
+            if (label["x0"] < box["x1"] and label["x1"] > box["x0"] and 
+                label["y0"] < box["y1"] and label["y1"] > box["y0"]):
+                return True
+    return False
+
 def ocr_page_regions(db, page: PageRender) -> int:
     from .models import Source
     source = db.get(Source, page.source_id)
@@ -43,6 +70,9 @@ def ocr_page_regions(db, page: PageRender) -> int:
     db.execute(delete(LabelRegion).where(LabelRegion.page_id == page.id))
     
     created = 0
+    from .models import Source
+    source = db.get(Source, page.source_id)
+    pdf_boxes = get_pdf_text_boxes(source.stored_path, page.page_number)
     for item in found:
         text = item["text"].strip()
         
@@ -60,7 +90,16 @@ def ocr_page_regions(db, page: PageRender) -> int:
             if text.lower() in h or h in text.lower():
                 is_heading = True
                 break
-                
+
+        # NEW: Reject if it's a heading from the PDF
+        if is_heading_or_text(item, pdf_boxes):
+            db.add(LabelRegion(
+                page_id=page.id, user_id=page.user_id,
+                x0=item["x0"], y0=item["y0"], x1=item["x1"], y1=item["y1"],
+                text=text, origin="ocr", status="rejected",
+                confidence=100.0, reject_reason="pdf_text"
+            ))
+            continue                
         if is_heading:
             db.add(LabelRegion(
                 page_id=page.id, user_id=page.user_id,

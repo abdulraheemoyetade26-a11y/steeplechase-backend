@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-  <title>Thaw</title>
-  <link rel="stylesheet" href="/static/thaw.css">
-  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-  <script>
-    const currentTheme = localStorage.getItem("thaw-theme") || "dark";
-    document.documentElement.setAttribute("data-theme", currentTheme);
-  </script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0E7C9B">
+<link rel="stylesheet" href="/static/thaw.css">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<script>try{var t=localStorage.getItem("thaw-theme");document.documentElement.setAttribute("data-theme",t==="light"||t==="dark"?t:(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
+<script src="/static/thaw.js" defer></script>
 </head>
 <body>
 
@@ -38,25 +36,7 @@
 
 <!-- Main App -->
 <section id="app" class="hidden">
-  <header class="topbar">
-    <a class="brand" href="/practice-test">
-      <svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true">
-        <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3CC7E8"/><stop offset="1" stop-color="#0E7C9B"/></linearGradient></defs>
-        <rect width="48" height="48" rx="12" fill="url(#tg)"/>
-        <path d="M24 9C24 9 14 21 14 28a10 10 0 0 0 20 0C34 21 24 9 24 9Z" fill="#fff"/>
-        <path d="M24 21v15M16.5 28.5h15" stroke="#0E7C9B" stroke-width="2.5" stroke-linecap="round"/>
-      </svg>
-      <span>Thaw</span>
-    </a>
-    
-    <div style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
-      <div class="theme-switch" id="themeToggle">
-        <span id="themeIcon">🌙</span>
-      </div>
-      <a href="#" id="settingsBtn" class="hint" style="text-decoration: none; font-weight: 600;">Settings</a>
-      <a href="#" id="logoutBtn" style="color: var(--bad); text-decoration: none; font-weight: 600;">Log out</a>
-    </div>
-  </header>
+<header id="thawTop"></header>
 
   <main>
     <section id="choose">
@@ -376,6 +356,19 @@ function minutesText(seconds) {
 }
 
 async function start() {
+  // Mount the new design system header
+  const me = await Thaw.me();
+  Thaw.mountShell({
+    active: "practice",
+    isAdmin: me ? me.is_admin : false,
+    initial: me ? me.email[0].toUpperCase() : "U",
+    home: "/practice-test",
+    actions: [
+      { id: "settingsBtn", label: "Settings" },
+      { id: "logoutBtn", label: "Log out", danger: true }
+    ]
+  });
+
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   $("feedbackBtn").classList.remove("hidden");
