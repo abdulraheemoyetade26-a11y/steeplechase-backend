@@ -1,26 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<meta name="theme-color" content="#0E7C9B">
-<link rel="stylesheet" href="/static/thaw.css">
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<script>try{var t=localStorage.getItem("thaw-theme");document.documentElement.setAttribute("data-theme",t==="light"||t==="dark"?t:(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
-<script src="/static/thaw.js" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#0E7C9B">
+  <link rel="stylesheet" href="/static/thaw.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <script>try{var t=localStorage.getItem("thaw-theme");document.documentElement.setAttribute("data-theme",t==="light"||t==="dark"?t:(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
+  <script src="/static/thaw.js" defer></script>
+  <title>Thaw</title>
 </head>
 <body>
 
-<!-- Tutorial Overlay -->
-<div id="tutorial" class="modal-backdrop hidden" role="dialog" aria-modal="true">
-  <div class="modal-content">
-    <p id="tutText" style="font-size: 1.2rem; line-height: 1.5; margin-bottom: 20px;"></p>
-    <div class="row" style="justify-content: space-between; margin-top: 16px;">
-      <button type="button" data-tut="skip" style="background: transparent; color: var(--muted); border: none;">Skip</button>
-      <button type="button" data-tut="next" id="tutNext" class="primary">Next</button>
-    </div>
-  </div>
-</div>
+<header id="thawTop"></header>
 
 <!-- Login Screen -->
 <section id="login" class="hidden" style="max-width: 400px; margin: 60px auto; padding: 20px;">
@@ -36,8 +28,6 @@
 
 <!-- Main App -->
 <section id="app" class="hidden">
-<header id="thawTop"></header>
-
   <main>
     <section id="choose">
       <h2>How do you want to prepare?</h2>
@@ -88,14 +78,14 @@
     <section id="review" class="hidden">
       <h2>Check the held-back labels</h2>
       <div id="reviewTimer" style="font-size: 2rem; font-weight: bold; text-align: center; margin: 10px 0;"></div>
-      <p class="hint">Does the text below match the label inside the blue outline? Press Enter if it does. If it is slightly wrong, correct the text first, then press Enter. Press Shift and Enter if it is not a label.</p>
+      <p class="hint">Does the text below match the label inside the blue outline?</p>
       <p id="reviewCounts" class="hint"></p>
-      <div class="imgbox" style="text-align: center; background: var(--surface-2); padding: 10px; border-radius: 12px;"><img id="reviewImg" alt="Label to check" style="max-width: 100%; max-height: 50vh;"></div>
+      <div class="imgbox" style="text-align: center; padding: 10px;"><img id="reviewImg" alt="Label to check" style="max-width: 100%; max-height: 50vh;"></div>
       <p id="reviewConf" class="hint"></p>
       <input id="reviewInput" type="text" autocomplete="off" placeholder="Label text">
       <div class="row" style="margin-top: 16px;">
-        <button class="primary" id="confirmBtn" style="flex: 1; padding: 15px; font-size: 18px;">✅ Looks right</button>
-        <button id="notLabelBtn" class="danger" style="flex: 1; padding: 15px; font-size: 18px;">❌ Not a label</button>
+        <button class="primary" id="confirmBtn" style="flex: 1; padding: 15px;">✅ Looks right</button>
+        <button class="danger" id="notLabelBtn" style="flex: 1; padding: 15px;">❌ Not a label</button>
       </div>
       <div class="row" style="margin-top: 10px;">
         <button id="undoBtn" style="flex: 1;">Undo last</button>
@@ -129,7 +119,7 @@
       <h2 id="runTitle" style="text-align: center;"></h2>
       <div id="stationBox">
         <div id="timer" style="font-size: 2rem; font-weight: bold; text-align: center; margin: 10px 0;"></div>
-        <div class="imgbox" style="text-align: center; background: var(--surface-2); padding: 10px; border-radius: 12px;"><img id="runImg" alt="Station" style="max-width: 100%; max-height: 60vh;"></div>
+        <div class="imgbox" style="text-align: center; padding: 10px;"><img id="runImg" alt="Station" style="max-width: 100%; max-height: 60vh;"></div>
         <div id="inputs" style="margin-top: 16px;"></div>
         <p><button class="primary" id="submitBtn" style="width: 100%;">Submit answers</button></p>
       </div>
@@ -147,7 +137,7 @@
 </section>
 
 <!-- Floating Feedback Button -->
-<button class="hidden" id="feedbackBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 56px; height: 56px; background: var(--primary); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">💬</button>
+<button class="hidden fab" id="feedbackBtn">💬</button>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal-backdrop hidden">
@@ -188,16 +178,13 @@ const review = { queue: [], history: [], index: 0, endAt: 0, timer: null, active
 const readiness = { labels: 0, pages: 0, held: 0, seconds: 3 };
 let isLoginMode = true;
 
-// --- THEME TOGGLE ---
-
-
-// --- TUTORIAL LOGIC ---
+// TUTORIAL
 const TUT_STEPS = [
   "Practise anatomy spotters from your own lecture slides, in minutes.",
-  "Add your lecture PDF or PowerPoint. We pull out the diagrams and work in the background. You can close the page and come back.",
-  "Option A: practise now with labels the app is confident about. Option B: spend a few minutes checking doubtful labels to unlock more.",
+  "Add your lecture PDF or PowerPoint. We pull out the diagrams and work in the background.",
+  "Option A: practise now. Option B: spend a few minutes checking doubtful labels.",
   "Set your timer for each station, like the real exam.",
-  "Type your answers and see your score. Think a label is wrong? Tap Report and we will review it."
+  "Type your answers and see your score."
 ];
 let tutIndex = 0;
 
@@ -215,11 +202,12 @@ async function saveTutorialDone() {
   try { await api("/auth/me/tutorial-done", { method: "POST" }); } catch (e) {}
 }
 
-$("tutorial").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-tut]");
-  if (!btn) return;
-  if (btn.dataset.tut === "skip") { tutClose(); return; }
-  if (tutIndex < TUT_STEPS.length - 1) { tutIndex++; tutRender(); } else { tutClose(); }
+document.body.addEventListener("click", (e) => {
+  if (e.target.closest("#tutorial button[data-tut]")) {
+    const btn = e.target.closest("button[data-tut]");
+    if (btn.dataset.tut === "skip") { tutClose(); return; }
+    if (tutIndex < TUT_STEPS.length - 1) { tutIndex++; tutRender(); } else { tutClose(); }
+  }
 });
 
 async function maybeShowTutorial() {
@@ -239,11 +227,8 @@ function el(tag, attrs = {}, ...kids) {
     else node.setAttribute(key, value);
   }
   kids.forEach((kid) => {
-    if (typeof kid === "string") {
-      node.appendChild(document.createTextNode(kid)); // <--- Fixes the crash
-    } else if (kid) {
-      node.appendChild(kid);
-    }
+    if (typeof kid === "string") node.appendChild(document.createTextNode(kid));
+    else if (kid) node.appendChild(kid);
   });
   return node;
 }
@@ -346,18 +331,19 @@ function minutesText(seconds) {
 }
 
 async function start() {
-  // Mount the new design system header
-  const me = await Thaw.me();
-  Thaw.mountShell({
-    active: "practice",
-    isAdmin: me ? me.is_admin : false,
-    initial: me ? me.email[0].toUpperCase() : "U",
-    home: "/practice-test",
-    actions: [
-      { id: "settingsBtn", label: "Settings" },
-      { id: "logoutBtn", label: "Log out", danger: true }
-    ]
-  });
+  if (typeof Thaw !== "undefined") {
+    const me = await Thaw.me();
+    Thaw.mountShell({
+      active: "practice",
+      isAdmin: me ? me.is_admin : false,
+      initial: me ? me.email[0].toUpperCase() : "U",
+      home: "/practice-test",
+      actions: [
+        { id: "settingsBtn", label: "Settings" },
+        { id: "logoutBtn", label: "Log out", danger: true }
+      ]
+    });
+  }
 
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
@@ -395,12 +381,12 @@ async function loadReadiness() {
   if (readiness.labels > 0) {
     $("optA").textContent = readiness.labels + " labels on " + readiness.pages + " pages are ready. You can start right away.";
   } else {
-    $("optA").textContent = "Nothing is ready yet. Process a source in the page editor.";
+    $("optA").textContent = "Nothing is ready yet.";
   }
   $("goSetup").disabled = readiness.labels === 0;
 
   if (readiness.held > 0) {
-    $("optB").textContent = readiness.held + " labels are held back. Checking all of them would take about " + minutesText(readiness.held * readiness.seconds) + ".";
+    $("optB").textContent = readiness.held + " labels are held back.";
   } else {
     $("optB").textContent = "Nothing is held back.";
   }
@@ -412,9 +398,7 @@ async function loadReadiness() {
 function updateEstimate() {
   const minutes = Math.max(1, Number($("minutes").value) || 1);
   const can = Math.min(readiness.held, Math.floor((minutes * 60) / readiness.seconds));
-  $("optBEstimate").textContent = readiness.held > 0
-    ? "In " + minutes + " min you can check about " + can + " labels."
-    : "";
+  $("optBEstimate").textContent = readiness.held > 0 ? "In " + minutes + " min you can check about " + can + " labels." : "";
 }
 
 let pollTimer = null;
@@ -432,7 +416,7 @@ function showProcessing(data) {
       const p = s.processing;
       const statusText = p.status === "queued" ? "Waiting to start..." 
                        : p.pages_done === p.pages_total ? "Ready to practise!" 
-                       : `Reading page ${p.pages_done} of ${p.pages_total}. You can start practising with what is ready.`;
+                       : `Reading page ${p.pages_done} of ${p.pages_total}.`;
       const text = s.filename + ": " + statusText;
       const btn = el("button", { text: "Cancel", style: "margin-left: 10px; padding: 4px 12px; min-height: 30px; font-size: 14px; background: transparent; border: 1px solid var(--border);" });
       btn.addEventListener("click", () => cancelJob(p.id));
@@ -450,7 +434,11 @@ function showProcessing(data) {
 }
 
 async function cancelJob(jobId) {
-  if (!confirm("Cancel processing this file?")) return;
+  if (typeof Thaw !== "undefined") {
+    if (!(await Thaw.confirm({ title: "Cancel processing?", body: "Pages already read stay available.", confirmText: "Cancel processing", danger: true }))) return;
+  } else {
+    if (!confirm("Cancel processing this file?")) return;
+  }
   try { await call("POST", "/jobs/" + jobId + "/cancel"); await loadReadiness(); } catch (e) { alert(e.message); }
 }
 
@@ -468,7 +456,7 @@ async function upload() {
   } catch (e) { $("uploadMsg").textContent = "Upload failed"; return; }
   if (!res.ok) { $("uploadMsg").textContent = data && typeof data.detail === "string" ? data.detail : "Upload failed"; return; }
   if (data.status === "failed") { $("uploadMsg").textContent = data.error || "Could not read file"; return; }
-  $("uploadMsg").textContent = "Uploaded. Next we find the diagrams. This is not ready for practice yet.";
+  $("uploadMsg").textContent = "Uploaded. Next we find the diagrams.";
   $("fileInput").value = "";
   await start();
   $("sourceSelect").value = String(data.id);
@@ -568,13 +556,8 @@ async function begin() {
   };
   if ($("sourceSelect").value) body.source_ids = [Number($("sourceSelect").value)];
   
-  try { 
-    run.session = await call("POST", "/practice/sessions", body); 
-  }
-  catch (e) { 
-    $("setupMsg").textContent = e.message; 
-    return; 
-  }
+  try { run.session = await call("POST", "/practice/sessions", body); }
+  catch (e) { $("setupMsg").textContent = e.message; return; }
   
   run.index = 0; $("runMsg").textContent = ""; next();
 }
@@ -608,17 +591,13 @@ async function showStation(station) {
   run.number = station.number; run.submitting = false;
 
   let info;
-  try { 
-    info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start"); 
-  }
+  try { info = await call("POST", "/practice/sessions/" + run.session.id + "/stations/" + station.number + "/start"); }
   catch (e) { 
-    // If we get a 409, it means the station is already active. Let's just get the details.
     if (e.message.includes("already active") || e.message.includes("Conflict")) {
       try { info = await call("GET", "/practice/sessions/" + run.session.id + "/stations/" + station.number); } 
       catch (e2) { $("runMsg").textContent = e2.message; return; }
     } else {
-      $("runMsg").textContent = e.message; 
-      return; 
+      $("runMsg").textContent = e.message; return; 
     }
   }
   
@@ -680,7 +659,7 @@ const observer = new IntersectionObserver((entries) => {
 
 const VERDICT = {
   exact: "Correct", close: "Correct (check spelling)", wrong: "Wrong", blank: "No answer",
-  unscored: "Not scored (answer key not fully verified)", flagged: "Reported, not counted",
+  unscored: "Not scored", flagged: "Reported",
 };
 
 function renderResults(r) {
@@ -689,14 +668,14 @@ function renderResults(r) {
   box.replaceChildren(
     el("h2", { text: "Score: " + r.earned + " / " + r.possible + " (" + r.percent + "%)", style: "text-align: center;" }),
     el("p", { text: "If your reports are accepted: " + r.score_if_reports_accepted + " / " + r.possible_if_reports_accepted, style: "text-align: center; color: var(--muted);" }),
-    el("p", { class: "hint", text: "Items marked \"Not scored\" or \"Reported\" use an answer key the app could not fully verify, so a mismatch never counts against you.", style: "text-align: center;" })
+    el("p", { class: "hint", text: "Items marked \"Not scored\" or \"Reported\" do not count against you.", style: "text-align: center;" })
   );
   r.stations.forEach((st, index) => {
     const img = el("img", { alt: "Answer reveal", style: "max-width: 100%; border-radius: 12px; border: 1px solid var(--border);" });
     img.dataset.url = st.reveal_url;
     observer.observe(img);
     const rows = st.items.map((item) => {
-      const flag = el("button", { text: "Report wrong label", style: "font-size: 12px; padding: 4px 8px; min-height: 30px;" });
+      const flag = el("button", { text: "Report", style: "font-size: 12px; padding: 4px 8px; min-height: 30px;" });
       flag.addEventListener("click", async () => {
         try { await call("POST", "/practice/flags", { region_id: item.region_id }); flag.textContent = "Reported"; flag.disabled = true; }
         catch (e) { flag.textContent = e.message; }
@@ -747,7 +726,11 @@ $("redeemBtn").addEventListener("click", async () => {
 $("deleteSourceBtn").addEventListener("click", async () => {
   const sid = $("sourceSelect").value;
   if (!sid) { alert("Select a source first."); return; }
-  if (!confirm("Are you sure you want to delete this source and all its labels? This cannot be undone.")) return;
+  if (typeof Thaw !== "undefined") {
+    if (!(await Thaw.confirm({ title: "Delete source?", body: "This will delete all labels.", confirmText: "Delete", danger: true }))) return;
+  } else {
+    if (!confirm("Delete this source and all labels?")) return;
+  }
   
   try {
     await call("DELETE", "/sources/" + sid);
@@ -775,7 +758,7 @@ document.body.addEventListener("click", async (e) => {
   if (e.target.closest("#settingsBtn")) { $("settingsModal").classList.remove("hidden"); }
   if (e.target.closest("#closeSettings")) { $("settingsModal").classList.add("hidden"); }
   if (e.target.closest("#deleteAccountBtn")) {
-    if (!confirm("Are you sure? This will permanently delete your account, uploaded PDFs, and scores. This cannot be undone.")) return;
+    if (!confirm("Are you sure? This will permanently delete your account, uploaded PDFs, and scores.")) return;
     const btn = $("deleteAccountBtn"); btn.disabled = true; btn.textContent = "Deleting...";
     try { await call("DELETE", "/auth/me"); localStorage.removeItem("token"); window.location.reload(); }
     catch (err) { alert("Error deleting account: " + err.message); btn.disabled = false; btn.textContent = "Delete My Account"; }
