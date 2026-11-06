@@ -11,14 +11,19 @@ def read_labels_with_ai(image_path: str) -> list[dict]:
     
     prompt = """
     You are a medical OCR assistant. Look at this lecture slide.
-    Return every piece of text on the page. For each item, give a "role":
-    - "diagram_label": a short name attached to a structure inside a figure (1 to 5 words, often with a line/arrow).
-    - "title": a heading or slide title.
-    - "body": sentences, bullet points, or lists.
-    - "caption": text starting with Figure or Fig.
-    - "other": anything else.
-
-    Return ONLY JSON: {"items":[{"text": "...", "role": "...", "xmin": 0.0, "ymin": 0.0, "xmax": 1.0, "ymax": 1.0}]}
+    
+    Your task is to find ONLY the text labels that point to a specific anatomical structure inside a diagram, picture, or illustration. These labels usually have a line, leader, or arrow pointing from the text to the structure. 
+    
+    DO NOT return:
+    - The main slide title or heading (e.g., "The Aorta").
+    - Paragraphs of text, bullet points, or lists.
+    - Text that is purely explanatory.
+    
+    If a page has a diagram, find the small text labels around the diagram (e.g., "Ascending aorta", "Aortic arch", "Brachiocephalic trunk").
+    
+    Return ONLY JSON: {"items":[{"text": "...", "role": "diagram_label", "xmin": 0.0, "ymin": 0.0, "xmax": 1.0, "ymax": 1.0}]}
+    
+    If there are no diagram labels on the page, return {"items": []}.
     """
     
     model = genai.GenerativeModel('gemini-1.5-flash')

@@ -1,3 +1,4 @@
+import fitz  # PyMuPDF
 from .ai_ocr import read_labels_with_ai
 from .trust import build_vocabulary, accepted_variants
 import re
@@ -179,37 +180,39 @@ def read_labels(image: Image.Image) -> list[dict]:
     return labels
 
 def ocr_page_regions(db, page: PageRender) -> int:
-    image = Image.open(page.file_path).convert("RGB")
     found = read_labels_with_ai(page.file_path)
+    
+    # 1. Extract the text layer from the PDF to check for headings
+    page_words = []
+    try:
+        with fitz.open(page.file_path) as doc:
+            pdf_page = doc[0]
+            page_words = pdf_page.get_text("words")
+    except Exception:
+        pass
 
-
-    vocabulary = build_vocabulary(db, page.source_id)
-    db.execute(
-        delete(LabelRegion).where(
-            LabelRegion.page_id == page.id,
-            LabelRegion.origin == "ocr",
-            LabelRegion.status.in_(["auto", "proposed"]),
-        )
-    )
     existing = db.scalars(select(LabelRegion).where(LabelRegion.page_id == page.id)).all()
-
     created = 0
+    
     for item in found:
         cx = (item["x0"] + item["x1"]) / 2
         cy = (item["y0"] + item["y1"]) / 2
         if any(r.x0 <= cx <= r.x1 and r.y0 <= cy <= r.y1 for r in existing):
             continue
             
-        # Filter out non-diagram labels
-        if item.get("role") != "diagram_label":
-            reject_reason = "role"
-        elif len(item["text"].split()) > 5 or len(item["text"]) > 40:
+        # FILTER 1: Length check
+        if len(item["text"].split()) > 5 or len(item["text"]) > 40:
             reject_reason = "length"
+        # FILTER 2: Does it match a heading in the PDF text layer?
+        elif matches_pdf_text(item, page_words):
+            reject_reason = "page_text"
+        # FILTER 3: Did Gemini say it's not a diagram label?
+        elif item.get("role") != "diagram_label":
+            reject_reason = "role"
         else:
             reject_reason = None
             
         if reject_reason:
-            # Save it as rejected so we can audit it
             db.add(LabelRegion(
                 page_id=page.id, user_id=page.user_id,
                 x0=item["x0"], y0=item["y0"], x1=item["x1"], y1=item["y1"],
@@ -220,22 +223,46 @@ def ocr_page_regions(db, page: PageRender) -> int:
             
         db.add(
             LabelRegion(
-                page_id=page.id,
-                user_id=page.user_id,
-                x0=item["x0"],
-                y0=item["y0"],
-                x1=item["x1"],
-                y1=item["y1"],
-                text=item["text"],
-                origin="ocr",
-                status="auto",
-                confidence=100.0,
-                role=item.get("role")
+                page_id=page.id, user_id=page.user_id,
+                x0=item["x0"], y0=item["y0"], x1=item["x1"], y1=item["y1"],
+                text=item["text"], origin="ocr", status="auto",
+                confidence=100.0, role=item.get("role")
             )
         )
         created += 1
-    page.ocr_done = True
+        
     return created
+
+def matches_pdf_text(item, page_words):
+    """Check if the label's text matches a word that already exists in the PDF's text layer."""
+    if not page_words:
+        return False
+        
+    # Get the page dimensions (PyMuPDF returns points, we need fractions)
+    # The image is 1600px wide usually. We assume the PDF page is standard A4 (595 points wide).
+    # We check if the label's center overlaps with any PDF word.
+    
+    text_lower = item["text"].lower()
+    
+    for w in page_words:
+        x0, y0, x1, y1, word, block_no, line_no, word_no = w
+        word_lower = word.lower()
+        
+        # If the word is identical to the label text, it's probably a heading or body text
+        if word_lower in text_lower:
+            # Check overlap in normalized coordinates
+            # page is ~595x842 points
+            wx0 = x0 / 595
+            wy0 = y0 / 842
+            wx1 = x1 / 595
+            wy1 = y1 / 842
+            
+            # Check if the label's box overlaps the word's box
+            if (item["x0"] < wx1 and item["x1"] > wx0 and 
+                item["y0"] < wy1 and item["y1"] > wy0):
+                return True
+                
+    return False
 
 def run_ocr_for_source(db, source_id: int, page_numbers: list[int] | None = None) -> dict:
     query = select(PageRender).where(PageRender.source_id == source_id, PageRender.ocr_done.is_(False))
