@@ -3,6 +3,8 @@ from sqlalchemy import select, delete
 from .models import LabelRegion, PageRender
 from .ai_ocr import read_labels_with_ai
 
+class OcrUnavailable(Exception):
+    pass
 def get_pdf_text_boxes(pdf_path, page_number):
     """Extracts the bounding boxes of all text on a specific page."""
     boxes = []
