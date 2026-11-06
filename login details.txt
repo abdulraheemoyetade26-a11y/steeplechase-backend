@@ -11,3 +11,6 @@ password: Olamilekan@26
 cd C:\Users\olamilekan\steeplechase\backend
 py -m uvicorn app.main:app
 py -m uvicorn app.main:app --host 0.0.0.0
+
+
+Olamilekan@26
